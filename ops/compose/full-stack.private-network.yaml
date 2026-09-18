@@ -305,7 +305,7 @@ services:
           - capabilities:
             - gpu
   cadvisor:
-    image: ${CADVISOR_IMAGE:?Set CADVISOR_IMAGE to a tested cAdvisor image tag}
+    image: ${CADVISOR_IMAGE:?Set CADVISOR_IMAGE to a tested cAdvisor immutable image ref}
     restart: unless-stopped
     privileged: true
     expose:
@@ -319,7 +319,7 @@ services:
     devices:
     - /dev/kmsg:/dev/kmsg
   prometheus:
-    image: ${PROMETHEUS_IMAGE:?Set PROMETHEUS_IMAGE to a tested Prometheus image tag}
+    image: ${PROMETHEUS_IMAGE:?Set PROMETHEUS_IMAGE to a tested Prometheus immutable image ref}
     restart: unless-stopped
     depends_on:
     - gateway
@@ -345,7 +345,7 @@ services:
   # 참조), 죽어도 다른 서비스 기동에 영향 없다.
   # -------------------------------------------------------------------------
   loki:
-    image: ${LOKI_IMAGE:?Set LOKI_IMAGE to a tested Grafana Loki image tag}
+    image: ${LOKI_IMAGE:?Set LOKI_IMAGE to a tested Grafana Loki immutable image ref}
     restart: unless-stopped
     user: 0:0
     command:
@@ -360,7 +360,7 @@ services:
     - '3100'
     ports: []
   alloy:
-    image: ${ALLOY_IMAGE:?Set ALLOY_IMAGE to a tested Grafana Alloy image tag}
+    image: ${ALLOY_IMAGE:?Set ALLOY_IMAGE to a tested Grafana Alloy immutable image ref}
     restart: unless-stopped
     user: 0:0
     depends_on:
@@ -377,7 +377,7 @@ services:
     - ../../.runtime/request-events:/var/lib/alloy/request-events:ro
     ports: []
   grafana:
-    image: ${GRAFANA_IMAGE:?Set GRAFANA_IMAGE to a tested Grafana image tag}
+    image: ${GRAFANA_IMAGE:?Set GRAFANA_IMAGE to a tested Grafana immutable image ref}
     restart: unless-stopped
     depends_on:
     - prometheus

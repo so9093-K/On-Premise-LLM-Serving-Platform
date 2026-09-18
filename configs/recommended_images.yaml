@@ -11,28 +11,34 @@ images:
       이미지를 통합했다.
     source: ops/images/vllm-unified/Dockerfile을 사용하는 로컬 Docker 빌드
   dcgm_exporter:
-    default: nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-distroless
+    default: nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-distroless@sha256:ed594cf53fe6942e84b07b0740cdcbb249fa4b39cb21feeebf93881ae51f0b5e
+    remote_immutable: true
     purpose: Prometheus용 NVIDIA GPU metric exporter.
-    source: NVIDIA dcgm-exporter release 예시
+    source: NVIDIA dcgm-exporter 4.5.2-4.8.1 distroless multi-arch manifest
   prometheus:
-    default: prom/prometheus:v3-distroless
+    default: prom/prometheus:v3-distroless@sha256:50c707e96da5ade383cb1707790576480485e93de06aa60ad8802cb5f744bd0a
+    remote_immutable: true
     purpose: 최소 distroless image variant를 사용하는 Prometheus metrics server.
-    source: Docker Hub prom/prometheus v3 distroless tag
+    source: Docker Hub prom/prometheus v3 distroless multi-arch manifest
   grafana:
-    default: grafana/grafana:12.2.8
-    purpose: nightly/main tag 대신 안정적인 12.2.x에 고정한 Grafana dashboard UI.
-    source: Grafana 12.2.x Docker tag 계열
+    default: grafana/grafana:12.2.8@sha256:4fd3611a33dff4ee61e9f319f00ce050d59108c90f5b643f28871728b4542caf
+    remote_immutable: true
+    purpose: nightly/main tag 대신 안정적인 12.2.8 manifest에 고정한 Grafana dashboard UI.
+    source: Grafana 12.2.8 multi-arch manifest
   cadvisor:
-    default: gcr.io/cadvisor/cadvisor:v0.49.2
+    default: gcr.io/cadvisor/cadvisor:v0.49.2@sha256:aea169b3b211216d9d61c33455ec3a85d2b6f63d8889b1ebf41b97163cffbbc5
+    remote_immutable: true
     purpose: container별 CPU와 system RAM metric을 제공하는 resource advisor.
-    source: Google cAdvisor v0.49.x 안정 release
+    source: Google cAdvisor v0.49.2 multi-arch manifest
   loki:
-    default: grafana/loki:3.3.2
+    default: grafana/loki:3.3.2@sha256:8af2de1abbdd7aa92b27c9bcc96f0f4140c9096b507c77921ffddf1c6ad6c48f
+    remote_immutable: true
     purpose: Grafana request-log-explorer dashboard용 log aggregation backend. 파일시스템
       저장소와 짧은 보존 기간(LOKI_RETENTION_HOURS)을 사용한다.
-    source: Grafana Loki 3.3.x Docker tag 계열
+    source: Grafana Loki 3.3.2 multi-arch manifest
   alloy:
-    default: grafana/alloy:v1.18.0
+    default: grafana/alloy:v1.18.0@sha256:491b0578c04983fd54fe99b587b6fab4404dc46d0dc16677bd6b00cc1140b308
+    remote_immutable: true
     purpose: admin-sidecar가 생성한 읽기 전용 target manifest를 사용해 Docker json-file
       container log를 Loki로 전송한다. Alloy에는 Docker API 접근 권한이 없다.
-    source: Grafana Alloy v1.18.0 release image
+    source: Grafana Alloy v1.18.0 multi-arch manifest
