@@ -93,7 +93,7 @@ def _validate_chat_schema_media_policy(chat_schema: dict[str, Any]) -> None:
         raise SystemExit('chat completion input_audio.format enum must match configured allowed_audio_formats')
 
 def validate_openapi_refs() -> None:
-    for path in ['specs/openapi.gateway.yaml', 'specs/openapi.risk-adapter.yaml']:
+    for path in ['specs/openapi.gateway.yaml', 'specs/openapi.risk-signal-service.yaml']:
         doc = read_yaml(path)
         for ref in walk_refs(doc):
             resolve_ref(ref)

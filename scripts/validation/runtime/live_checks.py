@@ -176,14 +176,14 @@ class LiveRuntimeChecks:
 
     def check_risk_health(self) -> CheckResult:
         status, body, latency = self.http.json("GET", f"{self.risk_base}/health")
-        ok = status == 200 and body.get("status") == "ok" and body.get("service") == "risk-adapter"
-        return CheckResult("risk-adapter-runtime", "risk-adapter /health", "pass" if ok else "fail", latency, details=body)
+        ok = status == 200 and body.get("status") == "ok" and body.get("service") == "risk-signal-service"
+        return CheckResult("risk-signal-service-runtime", "risk-signal-service /health", "pass" if ok else "fail", latency, details=body)
 
     def check_risk_ready(self) -> CheckResult:
         status, body, latency = self.http.json("GET", f"{self.risk_base}/ready", admin=True)
         deps = body.get("dependencies", [])
         ok = status == 200 and body.get("status") == "ready" and all(item.get("status") == "ready" for item in deps)
-        return CheckResult("risk-adapter-runtime", "risk-adapter /ready", "pass" if ok else "fail", latency, details=body)
+        return CheckResult("risk-signal-service-runtime", "risk-signal-service /ready", "pass" if ok else "fail", latency, details=body)
 
     def check_models(self) -> CheckResult:
         status, body, latency = self.http.json("GET", f"{self.gateway_base}/v1/models")
@@ -254,7 +254,7 @@ class LiveRuntimeChecks:
             missing = sorted(probe.expected_codes - codes)
             details.update({"detected_codes": sorted(c for c in codes if c), "missing_codes": missing, "leaked_values": leaked})
             ok = ok and not missing and not leaked
-        return CheckResult("risk-adapter-runtime", check_name, "pass" if ok else "fail", latency, details=details)
+        return CheckResult("risk-signal-service-runtime", check_name, "pass" if ok else "fail", latency, details=details)
 
     def check_risk_latency_under_load(self) -> CheckResult:
         """계약 상한(20,000자)에 가까운 입력의 지연을 본다.
@@ -270,7 +270,7 @@ class LiveRuntimeChecks:
         )
         ok = status == 200 and latency is not None and latency < _RISK_LATENCY_BUDGET_MS
         return CheckResult(
-            "risk-adapter-runtime", "detector latency at contract limit", "pass" if ok else "fail",
+            "risk-signal-service-runtime", "detector latency at contract limit", "pass" if ok else "fail",
             latency, details={"budget_ms": _RISK_LATENCY_BUDGET_MS},
         )
 
@@ -526,7 +526,7 @@ class LiveRuntimeChecks:
         status, body, latency = self.http.json("GET", f"{self.prometheus_base}/api/v1/targets")
         active = body.get("data", {}).get("activeTargets", []) if isinstance(body, dict) else []
         jobs = {item.get("labels", {}).get("job") for item in active if item.get("health") == "up"}
-        expected = {"gateway", "risk-adapter", "vllm-runtimes", "dcgm-exporter", "cadvisor"}
+        expected = {"gateway", "risk-signal-service", "vllm-runtimes", "dcgm-exporter", "cadvisor"}
         missing = sorted(expected - jobs)
         ok = status == 200 and not missing
         return CheckResult("monitoring-scrape", "prometheus active targets", "pass" if ok else "fail", latency, details={"up_jobs": sorted(j for j in jobs if j), "missing": missing})

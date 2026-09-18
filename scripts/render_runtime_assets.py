@@ -7,7 +7,7 @@
   specs/schemas/model_list_response.schema.json
   specs/openapi.gateway.yaml
   docs/reference/openai_compatibility.md
-  specs/openapi.risk-adapter.yaml
+  specs/openapi.risk-signal-service.yaml
 
 생성 제외 대상:
   compose 파일 (full-stack.private-network.yaml):
@@ -162,8 +162,8 @@ def get_artifacts(
         ),
         (root / "specs/openapi.gateway.yaml", render_static_openapi(openapi_docs["gateway"])),
         (
-            root / "specs/openapi.risk-adapter.yaml",
-            render_static_openapi(openapi_docs["risk-adapter"]),
+            root / "specs/openapi.risk-signal-service.yaml",
+            render_static_openapi(openapi_docs["risk-signal-service"]),
         ),
         (
             root / "docs/reference/openai_compatibility.md",

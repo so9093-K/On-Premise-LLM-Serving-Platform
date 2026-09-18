@@ -75,17 +75,17 @@ class RuntimeValidator:
         self.safe_check("gateway-runtime", "gateway /health", self.live_checks.check_gateway_health)
         self.safe_check("gateway-runtime", "gateway /ready", self.live_checks.check_gateway_ready)
         model_listing = self.safe_check("gateway-runtime", "gateway /v1/models", self.live_checks.check_models)
-        self.safe_check("risk-adapter-runtime", "risk-adapter /health", self.live_checks.check_risk_health)
-        self.safe_check("risk-adapter-runtime", "risk-adapter /ready", self.live_checks.check_risk_ready)
+        self.safe_check("risk-signal-service-runtime", "risk-signal-service /health", self.live_checks.check_risk_health)
+        self.safe_check("risk-signal-service-runtime", "risk-signal-service /ready", self.live_checks.check_risk_ready)
         for key, base in self.vllm_bases.items():
             self.safe_check("vllm-runtime", f"{key} /models", lambda key=key, base=base: self.live_checks.check_vllm_models(key, base))
         detectors = self.model_serving.get("risk_adapter", {}).get("detectors", {})
         for key, detector in detectors.items():
             if detector.get("enabled", True) is True:
                 route = str(detector.get("route", f"/v1/risk/detectors/{key}/assessments"))
-                self.safe_check("risk-adapter-runtime", f"{key} assessment", lambda route=route, key=key: self.live_checks.check_risk_endpoint(route, f"{key} assessment", key))
-        self.safe_check("risk-adapter-runtime", "aggregate assessment", lambda: self.live_checks.check_risk_endpoint("/v1/risk/assessments", "aggregate assessment"))
-        self.safe_check("risk-adapter-runtime", "detector latency at contract limit", self.live_checks.check_risk_latency_under_load)
+                self.safe_check("risk-signal-service-runtime", f"{key} assessment", lambda route=route, key=key: self.live_checks.check_risk_endpoint(route, f"{key} assessment", key))
+        self.safe_check("risk-signal-service-runtime", "aggregate assessment", lambda: self.live_checks.check_risk_endpoint("/v1/risk/assessments", "aggregate assessment"))
+        self.safe_check("risk-signal-service-runtime", "detector latency at contract limit", self.live_checks.check_risk_latency_under_load)
         self.safe_check("vllm-runtime", "chat", self.live_checks.check_chat)
         self.safe_check("vllm-runtime", "streaming chat", self.live_checks.check_streaming_chat)
         self.safe_check("vllm-runtime", "embedding", self.live_checks.check_embedding)
@@ -126,7 +126,7 @@ class RuntimeValidator:
         gateway_metrics = metric_sources["gateway"]["required_metrics"]
         risk_metrics = metric_sources["risk_adapter"]["required_metrics"]
         self.safe_check("monitoring-scrape", "gateway metrics", lambda: self.live_checks.scrape_metrics("gateway", self.gateway_base, gateway_metrics))
-        self.safe_check("monitoring-scrape", "risk-adapter metrics", lambda: self.live_checks.scrape_metrics("risk-adapter", self.risk_base, risk_metrics))
+        self.safe_check("monitoring-scrape", "risk-signal-service metrics", lambda: self.live_checks.scrape_metrics("risk-signal-service", self.risk_base, risk_metrics))
         # configs/performance/metrics.yaml의 vllm-cuda projection이 이 이름들에
         # 의존한다(ADR-0026). 선언과 계약의 일치는 make validate가 정적으로 보고,
         # 선언과 실제 런타임의 일치는 여기서 본다. 이 검사가 없으면 vLLM upgrade로

@@ -85,7 +85,7 @@ paths:
                   endpoint: http://embedding-vllm:9402/v1/models
                 - name: risk_adapter
                   status: ready
-                  endpoint: http://risk-adapter:9405/ready
+                  endpoint: http://risk-signal-service:9405/ready
         '401':
           description: 'Admin Bearer token 필요
 
@@ -125,7 +125,7 @@ paths:
                   endpoint: http://main-llm-vllm:9401/v1/models
                 - name: risk_adapter
                   status: not_ready
-                  endpoint: http://risk-adapter:9405/ready
+                  endpoint: http://risk-signal-service:9405/ready
                   message: 'waiting for Risk Signal Service dependencies: risk_prompt_vllm'
       security:
       - adminBearerAuth: []
