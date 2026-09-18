@@ -1,0 +1,100 @@
+version: 1
+
+# Qualification evidence v1.
+#
+# legacy_backfill:
+#   기존 repository 주석/ADR/운영 기록을 구조화한 이관 레코드다. 과거 검증 당시
+#   모든 fingerprint가 구조화되어 있지 않았으므로 source를 반드시 남기고 모르는
+#   필드는 꾸며 넣지 않는다.
+#
+# qualified_run:
+#   v1 도입 이후 새로 verified 승격에 사용하는 완전한 레코드다. validator가
+#   validated_at, runtime engine/version/image digest, GPU/driver를 필수로 요구한다.
+records:
+  gemma4-26b-a4b-fp8-linux-nvidia-legacy:
+    kind: legacy_backfill
+    subject:
+      type: main_model_profile
+      profile_id: gemma4-26b-a4b-fp8
+      model_id: RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic
+      revision: 8edbb9269ec9c3faad538ee1208a07eb46051f34
+    deployment_target: linux-nvidia-dynamic
+    validated_at: "2026-07-25"
+    capabilities: [text, image]
+    result: passed
+    hardware:
+      gpu: NVIDIA RTX 6000 Ada Generation
+      compute_capability: "8.9"
+      vram_mib: 49140
+    observations:
+      context_tokens: 20000
+      concurrency: 1
+      kv_cache_size_tokens: 31438
+      kv_cache_max_concurrency: 1.57
+    source:
+      path: configs/main_model_profiles.yaml
+      note: gemma4-26b-a4b-fp8 description의 2026-07-25 live validation 기록
+
+  gemma4-12b-unified-fp8-linux-nvidia-legacy:
+    kind: legacy_backfill
+    subject:
+      type: main_model_profile
+      profile_id: gemma4-12b-unified-fp8
+      model_id: RedHatAI/gemma-4-12B-it-FP8-Dynamic
+      revision: 67e53491df7a281623fa740de61307d5c542b7f4
+    deployment_target: linux-nvidia-dynamic
+    validated_at: "2026-07-25"
+    capabilities: [text, image, audio, video]
+    result: passed
+    hardware:
+      gpu: NVIDIA RTX 6000 Ada Generation
+      compute_capability: "8.9"
+      vram_mib: 49140
+    observations:
+      context_tokens: 50000
+      concurrency: 3
+      kv_cache_size_tokens: 53722
+      kv_cache_max_concurrency: 1.07
+    source:
+      path: configs/main_model_profiles.yaml
+      note: gemma4-12b-unified-fp8 description의 2026-07-25 live validation 기록
+
+  gemma4-e4b-it-linux-nvidia-legacy:
+    kind: legacy_backfill
+    subject:
+      type: main_model_profile
+      profile_id: gemma4-e4b-it
+      model_id: google/gemma-4-E4B-it
+      revision: ee0ef6023621cff504d758262d4e04895a5af4a2
+    deployment_target: linux-nvidia-dynamic
+    capabilities: [text, image, audio, video]
+    result: passed
+    hardware:
+      gpu: NVIDIA RTX 6000 Ada Generation
+      vram_mib: 49140
+    source:
+      path: configs/main_model_profiles.yaml
+      note: gemma4-e4b-it profile의 전환·Gateway·reasoning·structured output·tool call·media 실측 기록. 과거 검증 시각과 driver fingerprint는 구조화되어 있지 않아 backfill에서 생략한다.
+
+  qwen2.5-omni-7b-thinker-linux-nvidia-legacy:
+    kind: legacy_backfill
+    subject:
+      type: main_model_profile
+      profile_id: qwen2.5-omni-7b-thinker
+      model_id: Qwen/Qwen2.5-Omni-7B
+      revision: ae9e1690543ffd5c0221dc27f79834d0294cba00
+    deployment_target: linux-nvidia-dynamic
+    validated_at: "2026-08-14"
+    capabilities: [text, image, audio, video]
+    result: passed
+    hardware:
+      gpu: NVIDIA RTX 6000 Ada Generation
+      vram_mib: 49140
+    observations:
+      context_tokens: 32768
+      kv_cache_size_tokens: 209536
+      kv_cache_max_concurrency: 6.39
+      gpu_used_mib: 35840
+    source:
+      path: configs/main_model_profiles.yaml
+      note: qwen2.5-omni-7b-thinker description의 2026-08-14 boot/canary/Gateway contract 실측 기록

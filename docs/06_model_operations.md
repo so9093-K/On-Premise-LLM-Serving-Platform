@@ -158,6 +158,20 @@ legacy catalog의 `verified / likely / unverified / incompatible / unknown` 값�
 전환 가능 여부는 Compatibility가 결정한다. `incompatible`은 전환할 수 없고, 그 외 전환 가능한
 profile에서 Qualification이 `verified`가 아니면 switch 요청에 `confirm_unverified=true`가 필요하다.
 
+### Qualification Evidence
+
+`verified`는 상태 문자열만으로 끝나지 않는다. Main Model의 machine-readable 검증 근거는
+`configs/qualification_evidence.yaml`이 소유하며, 현재 verified profile은 현재
+`profile_id + model_id + revision + deployed_input capabilities`와 일치하는 passed evidence를
+최소 하나 가져야 한다.
+
+v1 이전 검증은 `legacy_backfill`로 구조화한다. 당시 기록되지 않은 driver version이나 resolved
+image digest를 추측해 채우지 않고 source와 실제 남아 있는 관측값만 보존한다.
+
+v1 이후 새 qualification 승격 근거는 `qualified_run`을 사용하며 검증 시각, runtime engine/version,
+resolved image digest, GPU와 driver version, 실제로 수행한 named checks를 함께 기록한다. 세부 정책은
+[ADR-0032](./adr/0032-qualification-evidence-v1.md)를 따른다.
+
 ### Profile Lock
 
 `MAIN_MODEL_PROFILE_LOCKED=true`이면 `MAIN_MODEL_BOOT_PROFILE`을 기준으로 Main Model profile을 고정한다. 일반 운영에서는 persisted active profile이 다음 기동에도 이어진다.

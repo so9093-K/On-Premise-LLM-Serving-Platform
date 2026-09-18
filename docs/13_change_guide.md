@@ -159,6 +159,7 @@ make build-image
 | `configs/model_catalog.yaml` | Model Registry, `/v1/models`, logical identity/capability |
 | `configs/model_serving.yaml` | runtime endpoint, 공통 운영 제한, 고정 non-main checkpoint/runtime 정책 |
 | `configs/main_model_profiles.yaml` | Main Model checkpoint identity와 실행 profile |
+| `configs/qualification_evidence.yaml` | Main Model qualification 검증 기록과 current-profile evidence |
 | `configs/services.yaml` | Service 이름, port, host bind metadata |
 | `configs/access_profiles.yaml` | 사용자 접근 profile의 지원 조합 |
 | `configs/exposure_profiles.yaml` | Host port 공개 범위 |
@@ -279,7 +280,7 @@ Inference 확인
 - Runtime Image
 - context / sequence / batch 설정
 - GPU memory fraction과 전체 GPU budget
-- qualification status
+- qualification status와 current evidence
 - capability와 canary 범위
 
 Target model cache를 미리 준비할 수 있다.

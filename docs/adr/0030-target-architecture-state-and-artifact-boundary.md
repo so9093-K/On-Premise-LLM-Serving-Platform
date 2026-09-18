@@ -184,7 +184,7 @@ SBOM, provenance, signature는 향후 OCI artifact metadata로 추가할 수 있
 1. Main Model compatibility / qualification 분리와 legacy projection
 2. Deployment Target implementation / qualification 분리와 legacy projection
 3. Main Model checkpoint Source of Truth 수렴
-4. Qualification evidence v1
+4. Qualification evidence v1 — [ADR-0032](./0032-qualification-evidence-v1.md)
 5. official OpenAI SDK conformance
 6. `MAIN_LLM_* → MAIN_MODEL_*` operator namespace migration
 7. Runtime Controller authority/threat model — [ADR-0031](./0031-runtime-controller-docker-authority-boundary.md)
