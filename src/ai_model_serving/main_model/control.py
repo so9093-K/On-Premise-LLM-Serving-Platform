@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, NamedTuple, Protocol
 
 from .state import MainModelStateError, MainModelStateStore, MainModelSwitchLockError
+from ..env_compat import renamed_env_value
 from ..service_logging import service_logger
 
 _logger = service_logger("main_model_control")
@@ -177,12 +178,20 @@ def _parse_gpu_fraction(command: list[str]) -> float:
 # 기준 호스트(reference-host)의 기본값이며, GPU가 다른 호스트는 공유 catalog를 수정하지
 # 않고도 동일한 프로필이 맞도록 이 값을 설정한다. 이는 *해당 호스트*의 VRAM 대비 비율이므로,
 # GPU가 작을수록 더 큰 비율을 설정하게 된다.
-GPU_UTIL_OVERRIDE_ENV = "MAIN_LLM_GPU_MEMORY_UTILIZATION"
+GPU_UTIL_OVERRIDE_ENV = "MAIN_MODEL_GPU_MEMORY_UTILIZATION"
+LEGACY_GPU_UTIL_OVERRIDE_ENV = "MAIN_LLM_GPU_MEMORY_UTILIZATION"
 
 
 def gpu_util_override_from_mapping(mapping: dict[str, str]) -> float | None:
     """호스트별 gpu-memory-utilization override를 파싱하고 없으면 ``None``을 반환한다."""
-    raw = (mapping.get(GPU_UTIL_OVERRIDE_ENV) or "").strip()
+    try:
+        raw = renamed_env_value(
+            mapping,
+            GPU_UTIL_OVERRIDE_ENV,
+            LEGACY_GPU_UTIL_OVERRIDE_ENV,
+        ).strip()
+    except RuntimeError as exc:
+        raise MainModelConfigurationError(str(exc)) from exc
     if not raw:
         return None
     try:
@@ -427,7 +436,7 @@ def resolve_boot_profile(
 ) -> str:
     configured = configured_profile or catalog.default_profile
     if configured not in catalog.profiles:
-        raise MainModelConfigurationError(f"unknown MAIN_LLM_BOOT_PROFILE: {configured}")
+        raise MainModelConfigurationError(f"unknown MAIN_MODEL_BOOT_PROFILE: {configured}")
     if locked:
         return configured
     if persisted_profile:
@@ -487,11 +496,11 @@ class MainModelManager:
         configured = boot_profile or catalog.default_profile
         if not profile_locked and persisted and persisted != configured:
             # ADR-0017 부트 우선순위(lock > 마지막으로 커밋된 활성 프로파일 >
-            # MAIN_LLM_BOOT_PROFILE)에 따른 의도된 동작이지, 에러가 아니다 — .env의
-            # MAIN_LLM_BOOT_PROFILE을 안 바꿔도 전환은 재시작을 넘어 유지된다. 그래도
+            # MAIN_MODEL_BOOT_PROFILE)에 따른 의도된 동작이지, 에러가 아니다 — .env의
+            # MAIN_MODEL_BOOT_PROFILE을 안 바꿔도 전환은 재시작을 넘어 유지된다. 그래도
             # .env만 보고 판단하는 운영자가 헷갈리지 않도록 로그는 남긴다.
             _logger.warning(
-                "main-llm-vllm boot profile diverges from MAIN_LLM_BOOT_PROFILE "
+                "main-llm-vllm boot profile diverges from MAIN_MODEL_BOOT_PROFILE "
                 "(configured=%s, persisted state active_profile=%s); booting the "
                 "persisted profile since it takes precedence (ADR-0017 boot "
                 "priority — this is expected, not an error)",
