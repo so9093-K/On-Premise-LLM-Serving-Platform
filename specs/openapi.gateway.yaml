@@ -1026,7 +1026,7 @@ paths:
         입력 종류, 토큰 한도, 허용 파라미터 목록이 함께 바뀌고 `/v1/models` 응답이 즉시 그 값을 반영합니다.
 
 
-        | 프로필 ID | 이름 | 호환성 |
+        | 프로필 ID | 이름 | Qualification |
 
         |---|---|---|
 
@@ -1039,8 +1039,9 @@ paths:
         | `qwen2.5-omni-7b-thinker` | Qwen 2.5 Omni 7B (Thinker) | `verified` |
 
 
-        호환성이 `verified`가 아닌 프로필로 전환하려면 `POST /admin/main-model/switch`에 `confirm_unverified:
-        true`가 필요합니다. 각 프로필의 근거는 `GET /admin/main-model/profiles`가 반환합니다.'
+        Qualification이 `verified`가 아닌 프로필로 전환하려면 `POST /admin/main-model/switch`에
+        `confirm_unverified: true`가 필요합니다. 각 프로필의 근거는 `GET /admin/main-model/profiles`가
+        반환합니다.'
       operationId: listModels
       responses:
         '200':
@@ -4358,6 +4359,9 @@ paths:
                       revision: 67e53491df7a281623fa740de61307d5c542b7f4
                       compatibility:
                         status: verified
+                        technical_status: compatible
+                      qualification:
+                        status: verified
                       capabilities:
                         deployed_input:
                         - text
@@ -4389,6 +4393,9 @@ paths:
                       revision: 67e53491df7a281623fa740de61307d5c542b7f4
                       compatibility:
                         status: verified
+                        technical_status: compatible
+                      qualification:
+                        status: verified
                       capabilities:
                         deployed_input:
                         - text
@@ -4418,6 +4425,9 @@ paths:
                       upstream_model_id: RedHatAI/gemma-4-12B-it-FP8-Dynamic
                       revision: 67e53491df7a281623fa740de61307d5c542b7f4
                       compatibility:
+                        status: verified
+                        technical_status: compatible
+                      qualification:
                         status: verified
                       capabilities:
                         deployed_input:
@@ -4525,6 +4535,9 @@ paths:
                   revision: 67e53491df7a281623fa740de61307d5c542b7f4
                   compatibility:
                     status: verified
+                    technical_status: compatible
+                  qualification:
+                    status: verified
                   capabilities:
                     deployed_input:
                     - text
@@ -4540,6 +4553,9 @@ paths:
                   upstream_model_id: RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic
                   revision: 8edbb9269ec9c3faad538ee1208a07eb46051f34
                   compatibility:
+                    status: verified
+                    technical_status: compatible
+                  qualification:
                     status: verified
                   capabilities:
                     deployed_input:
