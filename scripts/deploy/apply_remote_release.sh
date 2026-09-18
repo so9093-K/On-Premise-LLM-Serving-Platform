@@ -767,6 +767,13 @@ fi
 deploy_export_compose_env
 echo "[deploy] compose environment exported from ${COMPOSE_ENV_FILE}"
 
+# Third-party operations image는 publish 단계가 따로 없으므로 target .env의 ref 자체가
+# 원격 배포 artifact identity다. mutable tag가 남아 있으면 같은 release가 나중에 다른
+# image를 pull할 수 있으므로 서비스 변경 전에 fail-closed로 검증한다.
+if ! "${_PYTHON_BIN}" scripts/config/validate_image_refs.py --env-file "${COMPOSE_ENV_FILE}"; then
+  fail_after_env_backup "third-party Compose image refs must use immutable registry digests; update the *_IMAGE values from configs/recommended_images.yaml before retrying"
+fi
+
 # 동기화된 .env는 stale한 크로스 변수 불변식(예: 타임아웃 값을 올렸는데
 # REQUEST_TIMEOUT_SECONDS가 MAIN_LLM_TIMEOUT_SECONDS보다 낮게 남아있는 경우)을
 # 갖고 있을 수 있는데, 이건 gateway 프로세스가 실제로 부팅되어

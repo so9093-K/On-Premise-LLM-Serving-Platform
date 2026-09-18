@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from scripts.compose.validate_vllm_compose import validate_alignment
+from scripts.config.validate_image_refs import validate_repository_image_refs
 from .configuration_plane import validate_configuration_schema
 from .filesystem import validate_json_and_yaml_parse
 from .model_config import (
@@ -32,6 +33,7 @@ CHECKS = [
     validate_deploy_profiles,
     validate_runtime_prerequisite_projection,
     validate_alignment,
+    validate_repository_image_refs,
     validate_vllm_unified_build_inputs,
     validate_version_alignment,
     validate_python_compatibility,

@@ -118,7 +118,7 @@ Platform 이미지는 Registry의 고정된 digest로 전달된다.
 
 새 Unified vLLM digest가 없는 Full 배포는 대상 서버에 저장된 Runtime 이미지 설정을 사용한다.
 
-대상 서버에는 Docker/Compose, NVIDIA Runtime, Registry pull credential과 Main Model 로딩에 필요한 Hugging Face credential 또는 cache가 준비되어 있어야 한다. Registry 인증은 host bootstrap 책임이며 release deploy 스크립트는 credential을 전달하거나 `docker login`을 수행하지 않는다. 배포는 immutable image에 대한 `docker pull` 성공 여부만 검증한다.
+대상 서버에는 Docker/Compose, NVIDIA Runtime, Registry pull credential과 Main Model 로딩에 필요한 Hugging Face credential 또는 cache가 준비되어 있어야 한다. Registry 인증은 host bootstrap 책임이며 release deploy 스크립트는 credential을 전달하거나 `docker login`을 수행하지 않는다. Platform/Runtime promotion input과 target `.env`의 third-party operations image(DCGM Exporter, Prometheus, Grafana, cAdvisor, Loki, Alloy)는 모두 immutable registry digest여야 하며, 배포는 형식 검증 뒤 실제 `docker pull` 가능 여부를 확인한다.
 
 환경 설정과 프로파일의 Source of Truth는 [5. 설정 체계와 Source of Truth](./05_configuration.md)를 참고한다.
 
@@ -188,6 +188,8 @@ state, model cache는 배포 루트의 공유 경로를 사용한다.
 - 기존 환경 설정 백업 상태
 
 Full 배포에서는 Platform 이미지와 필요한 vLLM Runtime 이미지의 Registry pull 가능 여부를 확인한다.
+동기화된 target `.env`의 third-party operations image도 immutable digest인지 서비스 변경 전에 검증한다.
+기존 환경에 mutable tag가 남아 있으면 `configs/recommended_images.yaml`의 현재 digest로 갱신한 뒤 재시도한다.
 
 vLLM 빌드 구성이 변경된 배포에서는 새로 빌드·publish한 Runtime image의 immutable digest를
 명시해야 한다.
