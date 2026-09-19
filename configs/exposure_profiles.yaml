@@ -25,7 +25,7 @@ profiles:
       - embedding_vllm
       - embedding_ko_vllm
       - risk_prompt_vllm
-      - risk_adapter
+      - risk_signal_service
       - prometheus
       - grafana
       - dcgm_exporter
