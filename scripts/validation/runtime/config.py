@@ -96,7 +96,7 @@ def load_runtime_config(args: Any) -> RuntimeValidationConfig:
         # *_BASE_URL은 application container가 Compose 내부 서비스에 접속하는 주소다.
         # host에서 실행하는 검증이 이를 우선하면 내부 DNS가 해석되지 않아 실패한다.
         gateway_base=_url_value(args, "gateway_base", "RUNTIME_VALIDATION_GATEWAY_BASE_URL", service_base("gateway")),
-        risk_base=_url_value(args, "risk_base", "RUNTIME_VALIDATION_RISK_BASE_URL", service_base("risk_adapter")),
+        risk_base=_url_value(args, "risk_base", "RUNTIME_VALIDATION_RISK_BASE_URL", service_base("risk_signal_service")),
         prometheus_base=_url_value(args, "prometheus_base", "RUNTIME_VALIDATION_PROMETHEUS_BASE_URL", service_base("prometheus")),
         grafana_base=_url_value(args, "grafana_base", "RUNTIME_VALIDATION_GRAFANA_BASE_URL", service_base("grafana")),
         grafana_admin_user=_explicit_arg(args, "grafana_user") or os.getenv("GRAFANA_ADMIN_USER", "admin"),
