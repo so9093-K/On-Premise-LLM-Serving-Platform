@@ -650,7 +650,7 @@ curl -X POST "$GATEWAY/v1/chat/completions" \\
 # Risk Signal Service
 # ---------------------------------------------------------------------------
 
-RISK_ADAPTER_TAGS_METADATA = [
+RISK_SIGNAL_SERVICE_TAGS_METADATA = [
     {
         "name": "Operations",
         "description": "`/health`는 프로세스가 살아 있는지, `/ready`는 탐지기 vLLM이 준비됐는지 확인합니다.",
@@ -673,7 +673,7 @@ RISK_ADAPTER_TAGS_METADATA = [
     },
 ]
 
-RISK_ADAPTER_DESCRIPTION_TEMPLATE = """
+RISK_SIGNAL_SERVICE_DESCRIPTION_TEMPLATE = """
 ## 개요
 
 내부 Risk Signal Service API입니다. Gateway 또는 내부 호출자가 사용합니다.
