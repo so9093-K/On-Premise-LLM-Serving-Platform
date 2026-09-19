@@ -54,7 +54,7 @@ if [[ "$stop_compose" == "1" && -f "$COMPOSE_FILE_ABS" ]]; then
 fi
 
 if [[ "$stop_local" == "1" ]]; then
-  for name in gateway risk_adapter; do
+  for name in gateway risk_signal_service; do
     pid_file="run/${name}.pid"
     if [[ -f "$pid_file" ]]; then
       pid="$(cat "$pid_file")"
