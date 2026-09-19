@@ -43,9 +43,9 @@ def test_gateway_readiness_reflects_risk_signal_service_body_status():
     body = response.json()
     assert body["status"] == "not_ready"
     assert body["phase"] == "waiting_for_dependencies"
-    assert body["not_ready_dependencies"] == ["risk_signal_service"]
-    assert {item["name"]: item["status"] for item in body["dependencies"]}["risk_signal_service"] == "not_ready"
-    risk_dependency = next(item for item in body["dependencies"] if item["name"] == "risk_signal_service")
+    assert body["not_ready_dependencies"] == ["risk-signal-service"]
+    assert {item["name"]: item["status"] for item in body["dependencies"]}["risk-signal-service"] == "not_ready"
+    risk_dependency = next(item for item in body["dependencies"] if item["name"] == "risk-signal-service")
     assert risk_dependency["endpoint"] == "http://risk/ready"
     assert "risk_prompt_vllm" in risk_dependency["message"]
 
