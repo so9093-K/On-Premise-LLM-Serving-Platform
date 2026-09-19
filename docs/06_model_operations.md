@@ -500,7 +500,7 @@ Main Model 외 controllable runtime도 Admin API에서 시작·중지할 수 있
 
 - `embedding`
 - `embedding_ko`
-- `risk_prompt`
+- `prompt_injection_detector`
 
 현재 상태는 다음 API에서 확인한다.
 
