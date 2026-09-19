@@ -23,8 +23,8 @@ def test_deploy_directive_fails_startup_when_persistence_is_unavailable(
     ):
         RuntimeStateStore(
             path,
-            controllable_keys={"risk_prompt"},
-            deferred_keys=("risk_prompt",),
+            controllable_keys={"prompt_injection_detector"},
+            deferred_keys=("prompt_injection_detector",),
             release_id="release-1",
         )
 
