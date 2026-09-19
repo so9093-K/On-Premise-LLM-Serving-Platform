@@ -1381,7 +1381,7 @@ Dependency loading:
       "name": "risk-signal-service",
       "status": "not_ready",
       "endpoint": "http://risk-signal-service:9405/ready",
-      "message": "waiting for Risk Signal Service dependencies: risk_prompt_vllm"
+      "message": "waiting for Risk Signal Service dependencies: prompt_injection_detector_runtime"
     }
   ]
 }
@@ -1428,7 +1428,7 @@ curl "$GATEWAY_URL/admin/runtimes" \
     },
     {
       "service_key": "prompt_injection_detector",
-      "container": "risk-prompt-vllm",
+      "container": "prompt-injection-detector-runtime",
       "state": "active",
       "container_status": "running",
       "vram_fraction": 0.065,
@@ -1517,7 +1517,7 @@ GPU Budget 초과 응답:
       "available": 0.765,
       "ceiling": 0.93,
       "plan": {
-        "stop": ["risk-prompt-vllm", "embedding-ko-vllm"]
+        "stop": ["prompt-injection-detector-runtime", "embedding-ko-vllm"]
       }
     }
   }
