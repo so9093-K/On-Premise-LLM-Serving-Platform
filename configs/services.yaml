@@ -30,7 +30,7 @@ services:
       - public_entrypoint
 
   # PII·secret·Prompt Injection detector 결과를 정규화하는 내부 Risk Signal Service.
-  risk_adapter:
+  risk_signal_service:
     compose_service: risk-signal-service
     container_port: 9405
     host_env_port: RISK_SIGNAL_SERVICE_PORT
@@ -38,7 +38,7 @@ services:
     host_env_bind: RISK_SIGNAL_SERVICE_BIND_ADDR
     default_bind: "0.0.0.0"
     categories:
-      - risk_adapter
+      - risk_signal_service
 
   # active main-model profile을 실행하는 주 대화 모델 runtime.
   main_llm_vllm:
