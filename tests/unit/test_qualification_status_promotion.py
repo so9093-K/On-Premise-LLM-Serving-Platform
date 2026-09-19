@@ -3,7 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts.qualification.status_promotion import build_plan
+import pytest
+
+from scripts.qualification.status_promotion import apply_plan, build_plan
 
 
 def _write_configs(root: Path) -> None:
@@ -55,3 +57,38 @@ def test_plan_digest_changes_when_profile_state_changes(tmp_path: Path) -> None:
 
     assert first.profiles_digest != second.profiles_digest
     assert first.plan_digest != second.plan_digest
+
+
+def test_apply_requires_exact_reviewed_plan_and_only_promotes_status(tmp_path: Path) -> None:
+    _write_configs(tmp_path)
+    path = tmp_path / "configs/main_model_profiles.yaml"
+    before = path.read_text(encoding="utf-8")
+
+    with patch(
+        "scripts.qualification.status_promotion.eligible_qualified_run_ids",
+        return_value=["qualified-run-1"],
+    ):
+        plan = build_plan("gemma-test", root=tmp_path)
+        applied = apply_plan("gemma-test", plan.plan_digest, root=tmp_path)
+
+    assert applied == plan
+    assert path.read_text(encoding="utf-8") == before.replace(
+        "      status: unverified\n", "      status: verified\n"
+    )
+
+
+def test_apply_rejects_repository_drift_without_mutation(tmp_path: Path) -> None:
+    _write_configs(tmp_path)
+    path = tmp_path / "configs/main_model_profiles.yaml"
+
+    with patch(
+        "scripts.qualification.status_promotion.eligible_qualified_run_ids",
+        return_value=["qualified-run-1"],
+    ):
+        plan = build_plan("gemma-test", root=tmp_path)
+        path.write_text(path.read_text(encoding="utf-8") + "# changed after review\n", encoding="utf-8")
+        drifted = path.read_bytes()
+        with pytest.raises(ValueError, match="no longer matches"):
+            apply_plan("gemma-test", plan.plan_digest, root=tmp_path)
+
+    assert path.read_bytes() == drifted
