@@ -22,6 +22,8 @@
 
 ### Changed
 
+- Runtime validation이 Main Model qualification용 stable check ID를 report에 기록하고, active profile이 image/audio/video 입력을 공개하면 switch-time과 동일한 checked-in media fixture로 실제 chat canary를 실행한다. 이 결과는 후속 `qualified_run` producer가 `configs/qualification_checks.yaml`과 대조할 수 있다.
+
 - Main Model Qualification에 stable check registry를 추가했다. `configs/qualification_checks.yaml`이 capability별 required check를 소유하고, 새 `qualified_run`은 `{id, status}` check 결과를 기록한다. passed evidence에서 required check가 누락되거나 `failed`/`skipped`이면 CI가 fail-closed한다. ([ADR-0032](docs/adr/0032-qualification-evidence-v1.md))
 
 - Prompt Injection Detector의 service-registry/Compose identity를 `prompt_injection_detector_runtime` / `prompt-injection-detector-runtime`로 수렴했다. 기존 `PROMPT_INJECTION_DETECTOR_BASE_URL=http://risk-prompt-vllm:9403/v1` 기본값은 `make sync-env`가 새 DNS로 정확히 이관하며, 다른 operator-owned URL은 보존한다. public model alias `risk-prompt`는 유지한다.

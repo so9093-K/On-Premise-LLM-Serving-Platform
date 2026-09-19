@@ -87,6 +87,22 @@ class RuntimeValidator:
         self.safe_check("risk-signal-service-runtime", "aggregate assessment", lambda: self.live_checks.check_risk_endpoint("/v1/risk/assessments", "aggregate assessment"))
         self.safe_check("risk-signal-service-runtime", "detector latency at contract limit", self.live_checks.check_risk_latency_under_load)
         self.safe_check("vllm-runtime", "chat", self.live_checks.check_chat)
+        main_modalities = {
+            str(value)
+            for value in model_listing.details.get("main_model_input_modalities", [])
+            if isinstance(value, str)
+        }
+        for modality, fn in (
+            ("image", self.live_checks.check_chat_image),
+            ("audio", self.live_checks.check_chat_audio),
+            ("video", self.live_checks.check_chat_video),
+        ):
+            if modality in main_modalities:
+                self.safe_check(
+                    "vllm-runtime",
+                    f"{modality} chat",
+                    fn,
+                )
         self.safe_check("vllm-runtime", "streaming chat", self.live_checks.check_streaming_chat)
         self.safe_check("vllm-runtime", "embedding", self.live_checks.check_embedding)
         self.safe_check("vllm-runtime", "embedding-ko", self.live_checks.check_embedding_ko)

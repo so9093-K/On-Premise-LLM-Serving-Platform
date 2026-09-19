@@ -8,6 +8,11 @@ from jsonschema import Draft202012Validator, ValidationError
 
 from ai_model_serving.domain import ModelRegistry
 from ai_model_serving.openapi_contracts import load_contract_schema
+from ai_model_serving.media_samples import (
+    TINY_JPEG_1X1_B64,
+    TINY_M4A_AAC_B64,
+    TINY_MP4_VIDEO_B64,
+)
 
 from .config import RuntimeValidationConfig
 from .constants import FORBIDDEN_RISK_FIELDS
@@ -214,6 +219,15 @@ class LiveRuntimeChecks:
             if isinstance(limits, dict):
                 main_limits = limits
             break
+        main_modalities: list[str] = []
+        for item in models:
+            if isinstance(item, dict) and item.get("id") == self._main_model_name():
+                raw_modalities = item.get("input_modalities")
+                if isinstance(raw_modalities, list):
+                    main_modalities = [
+                        str(value) for value in raw_modalities if isinstance(value, str)
+                    ]
+                break
         return CheckResult(
             "gateway-runtime",
             "gateway /v1/models",
@@ -223,8 +237,10 @@ class LiveRuntimeChecks:
                 "ids": sorted(ids),
                 "main_model_request_parameters": main_parameters,
                 "main_model_request_limits": main_limits,
+                "main_model_input_modalities": main_modalities,
                 "contract_error": contract_error,
             },
+            qualification_check_id="main_model.gateway.models",
         )
 
     def check_vllm_models(self, key: str, base_url: str) -> CheckResult:
@@ -232,7 +248,18 @@ class LiveRuntimeChecks:
         expected_model = self.registry.runtime_service(key).served_model_name
         ids = {item.get("id") for item in body.get("data", [])}
         ok = status == 200 and expected_model in ids
-        return CheckResult("vllm-runtime", f"{key} /models", "pass" if ok else "fail", latency, details={"expected_model": expected_model, "ids": sorted(ids)})
+        return CheckResult(
+            "vllm-runtime",
+            f"{key} /models",
+            "pass" if ok else "fail",
+            latency,
+            details={"expected_model": expected_model, "ids": sorted(ids)},
+            qualification_check_id=(
+                "main_model.runtime.models"
+                if expected_model == self._main_model_name()
+                else ""
+            ),
+        )
 
     def check_risk_endpoint(self, endpoint: str, check_name: str, detector_key: str = "") -> CheckResult:
         """배포된 탐지기가 살아 있는지가 아니라 **실제로 탐지하는지**를 본다.
@@ -283,7 +310,93 @@ class LiveRuntimeChecks:
         }
         status, body, latency = self.http.json("POST", f"{self.gateway_base}/v1/chat/completions", payload)
         ok = status == 200 and body.get("object") == "chat.completion" and bool(body.get("choices"))
-        return CheckResult("vllm-runtime", "gateway chat completion", "pass" if ok else "fail", latency, details={"model": body.get("model"), "choices": len(body.get("choices", []))})
+        return CheckResult(
+            "vllm-runtime",
+            "gateway chat completion",
+            "pass" if ok else "fail",
+            latency,
+            details={"model": body.get("model"), "choices": len(body.get("choices", []))},
+            qualification_check_id="main_model.chat.text",
+        )
+
+    def _check_chat_media(
+        self,
+        *,
+        kind: str,
+        content_part: dict[str, Any],
+    ) -> CheckResult:
+        payload = {
+            "model": self._main_model_name(),
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Reply with OK only."},
+                        content_part,
+                    ],
+                }
+            ],
+            "max_tokens": _CANARY_COMPLETION_TOKENS,
+            "temperature": 0,
+        }
+        status, body, latency = self.http.json(
+            "POST",
+            self._chat_url(),
+            payload,
+        )
+        content = self._assistant_content(body)
+        ok = (
+            status == 200
+            and body.get("object") == "chat.completion"
+            and isinstance(content, str)
+            and bool(content)
+        )
+        return CheckResult(
+            "vllm-runtime",
+            f"gateway {kind} chat completion",
+            "pass" if ok else "fail",
+            latency,
+            details={
+                "status": status,
+                "model": body.get("model"),
+                "has_content": isinstance(content, str) and bool(content),
+            },
+            qualification_check_id=f"main_model.chat.{kind}",
+        )
+
+    def check_chat_image(self) -> CheckResult:
+        return self._check_chat_media(
+            kind="image",
+            content_part={
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/jpeg;base64,{TINY_JPEG_1X1_B64}",
+                },
+            },
+        )
+
+    def check_chat_audio(self) -> CheckResult:
+        return self._check_chat_media(
+            kind="audio",
+            content_part={
+                "type": "input_audio",
+                "input_audio": {
+                    "data": TINY_M4A_AAC_B64,
+                    "format": "m4a",
+                },
+            },
+        )
+
+    def check_chat_video(self) -> CheckResult:
+        return self._check_chat_media(
+            kind="video",
+            content_part={
+                "type": "video_url",
+                "video_url": {
+                    "url": f"data:video/mp4;base64,{TINY_MP4_VIDEO_B64}",
+                },
+            },
+        )
 
     def check_streaming_chat(self) -> CheckResult:
         payload = {
