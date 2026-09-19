@@ -162,6 +162,14 @@ class DockerMainModelBackend:
             }
         inspected = await self._inspect(container_id)
         state = inspected.get("State", {})
+        config = inspected.get("Config", {})
+        labels = config.get("Labels") if isinstance(config.get("Labels"), dict) else {}
+        image_ref_value = config.get("Image")
+        image_id_value = inspected.get("Image")
+        vllm_version_value = labels.get("ai_model_serving.vllm_version")
+        image_ref = str(image_ref_value) if image_ref_value else None
+        image_id = str(image_id_value) if image_id_value else None
+        vllm_version = str(vllm_version_value) if vllm_version_value else None
         container_state = str(state.get("Status") or "unknown")
         health_value = state.get("Health", {}).get("Status")
         health = str(health_value) if health_value is not None else None
@@ -180,6 +188,9 @@ class DockerMainModelBackend:
             "container_state": container_state,
             "health": health,
             "profile_id": self._profile_from_inspected(catalog, inspected),
+            "image_ref": image_ref,
+            "image_id": image_id,
+            "runtime_engine": {"name": "vllm", "version": vllm_version},
             "error": None,
         }
 

@@ -589,8 +589,9 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "`503 MAIN_MODEL_SWITCH_IN_PROGRESS` + `Retry-After`로 fail-closed 응답합니다.\n"
             "- `runtime_state` — ledger가 기록한 목표 상태(`active` / `stopped`).\n"
             "- `last_operation` — 가장 최근 전환 작업 요약(`status`, `stage`, `error`).\n"
-            "- `observed_runtime` — Docker inspect 결과(`container_state`, `health`, `observed_at`). "
-            "ledger와 어긋나면 drift이며, 이 값이 `null`이면 관측 자체가 실패한 것입니다.\n\n"
+            "- `observed_runtime` — Docker inspect 결과(`container_state`, `health`, `profile_id`, "
+            "`image_ref`, `image_id`, `runtime_engine`, `observed_at`). ledger와 어긋나면 drift이며, "
+            "image label에 engine version이 없으면 이를 추측하지 않고 `runtime_engine.version=null`로 반환합니다.\n\n"
             "Docker 관측은 이 라우트에서만 수행합니다. 요청 경로(`/v1/chat/completions`, `/v1/models`)는 "
             "ledger만 읽으므로 추론이 Docker daemon 상태에 묶이지 않습니다."
         ),

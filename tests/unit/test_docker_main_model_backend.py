@@ -193,8 +193,13 @@ def test_observe_runtime_reports_container_health_and_profile(monkeypatch):
 
     async def fake_inspect(_container_id):
         return {
+            "Image": "sha256:" + "c" * 64,
             "State": {"Status": "running", "Health": {"Status": "healthy"}},
-            "Config": {"Cmd": list(profile.command), "Image": profile.image},
+            "Config": {
+                "Cmd": list(profile.command),
+                "Image": profile.image,
+                "Labels": {"ai_model_serving.vllm_version": "0.25.1"},
+            },
         }
 
     monkeypatch.setattr(backend, "_container_id", fake_container_id)
@@ -205,8 +210,40 @@ def test_observe_runtime_reports_container_health_and_profile(monkeypatch):
         "container_state": "running",
         "health": "healthy",
         "profile_id": profile.profile_id,
+        "image_ref": profile.image,
+        "image_id": "sha256:" + "c" * 64,
+        "runtime_engine": {"name": "vllm", "version": "0.25.1"},
         "error": None,
     }
+
+
+def test_observe_runtime_does_not_guess_engine_version_without_image_label(monkeypatch):
+    catalog = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
+    profile = catalog.profiles["gemma4-26b-a4b-fp8"]
+    backend = DockerMainModelBackend("/var/run/docker.sock", gateway_url="http://gateway:9400")
+
+    async def fake_container_id(_service):
+        return "container-1"
+
+    async def fake_inspect(_container_id):
+        return {
+            "Image": "sha256:" + "d" * 64,
+            "State": {"Status": "running", "Health": {"Status": "healthy"}},
+            "Config": {
+                "Cmd": list(profile.command),
+                "Image": profile.image,
+                "Labels": {},
+            },
+        }
+
+    monkeypatch.setattr(backend, "_container_id", fake_container_id)
+    monkeypatch.setattr(backend, "_inspect", fake_inspect)
+
+    observed = asyncio.run(backend.observe_runtime(catalog))
+
+    assert observed["runtime_engine"] == {"name": "vllm", "version": None}
+    assert observed["image_ref"] == profile.image
+    assert observed["image_id"] == "sha256:" + "d" * 64
 
 
 def test_observed_started_at_returns_container_state_started_at(monkeypatch):
