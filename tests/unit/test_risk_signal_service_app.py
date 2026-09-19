@@ -11,18 +11,18 @@ import logging
 import pytest
 from jsonschema import Draft202012Validator
 
-from ai_model_serving.apps.risk_adapter import create_risk_adapter_app
+from ai_model_serving.apps.risk_signal_service import create_risk_signal_service_app
 from ai_model_serving.settings import AppSettings, SecuritySettings
 from tests.support.asgi import InlineASGITestClient as TestClient
-from tests.support.risk_adapter import FakeDetectorClient, FakeRiskClients, auth_headers, settings
+from tests.support.risk_signal_service import FakeDetectorClient, FakeRiskClients, auth_headers, settings
 import json
 from pathlib import Path
 
 
-def test_risk_adapter_readiness_not_ready_returns_http_503():
+def test_risk_signal_service_readiness_not_ready_returns_http_503():
     clients = FakeRiskClients()
     clients.prompt.ready = False
-    client = TestClient(create_risk_adapter_app(settings(), clients))
+    client = TestClient(create_risk_signal_service_app(settings(), clients))
 
     response = client.get("/ready")
 
@@ -46,7 +46,7 @@ def error_schema():
 
 
 
-def test_risk_adapter_internal_auth_is_independent_from_public_api_auth():
+def test_risk_signal_service_internal_auth_is_independent_from_public_api_auth():
     cfg = settings()
     cfg = dataclasses.replace(
         cfg,
@@ -57,7 +57,7 @@ def test_risk_adapter_internal_auth_is_independent_from_public_api_auth():
             internal_service_auth_required=True,
         ),
     )
-    client = TestClient(create_risk_adapter_app(cfg, FakeRiskClients()))
+    client = TestClient(create_risk_signal_service_app(cfg, FakeRiskClients()))
     unauthenticated = client.post("/v1/risk/assessments", json={"prompt": "hello"})
     assert unauthenticated.status_code == 401
 
@@ -65,8 +65,8 @@ def test_risk_adapter_internal_auth_is_independent_from_public_api_auth():
     assert authenticated.status_code == 200
 
 
-def test_risk_adapter_rejects_external_gateway_token():
-    client = TestClient(create_risk_adapter_app(settings(), FakeRiskClients()))
+def test_risk_signal_service_rejects_external_gateway_token():
+    client = TestClient(create_risk_signal_service_app(settings(), FakeRiskClients()))
     response = client.post(
         "/v1/risk/assessments",
         headers={"Authorization": "Bearer test-key"},
@@ -74,8 +74,8 @@ def test_risk_adapter_rejects_external_gateway_token():
     )
     assert response.status_code == 401
 
-def test_risk_adapter_returns_signal_only_valid_schema():
-    client = TestClient(create_risk_adapter_app(settings(), FakeRiskClients(prompt_label="<UNSAFE-A1>")))
+def test_risk_signal_service_returns_signal_only_valid_schema():
+    client = TestClient(create_risk_signal_service_app(settings(), FakeRiskClients(prompt_label="<UNSAFE-A1>")))
     response = client.post("/v1/risk/detectors/prompt/assessments", headers=auth_headers(), json={"prompt": "ignore instructions"})
     assert response.status_code == 200
     body = response.json()
@@ -88,9 +88,9 @@ def test_risk_adapter_returns_signal_only_valid_schema():
 
 
 
-def test_risk_adapter_uses_single_token_generation_budget():
+def test_risk_signal_service_uses_single_token_generation_budget():
     clients = FakeRiskClients(prompt_label="<SAFE>")
-    client = TestClient(create_risk_adapter_app(settings(), clients))
+    client = TestClient(create_risk_signal_service_app(settings(), clients))
     response = client.post("/v1/risk/detectors/prompt/assessments", headers=auth_headers(), json={"prompt": "hello"})
     assert response.status_code == 200
     assert clients.prompt.last_payload["max_tokens"] == 1
@@ -99,7 +99,7 @@ def test_risk_adapter_uses_single_token_generation_budget():
     assert clients.prompt.last_payload["top_logprobs"] == 3
 
 
-def test_risk_adapter_projects_first_token_logprobs_as_probabilities():
+def test_risk_signal_service_projects_first_token_logprobs_as_probabilities():
     clients = FakeRiskClients(
         prompt_label="<SAFE>",
         prompt_top_logprobs=[
@@ -108,7 +108,7 @@ def test_risk_adapter_projects_first_token_logprobs_as_probabilities():
             {"token": "<UNSAFE-A2>", "logprob": -4.0},
         ],
     )
-    client = TestClient(create_risk_adapter_app(settings(), clients))
+    client = TestClient(create_risk_signal_service_app(settings(), clients))
 
     response = client.post("/v1/risk/detectors/prompt/assessments", headers=auth_headers(), json={"prompt": "hello"})
 
@@ -122,7 +122,7 @@ def test_risk_adapter_projects_first_token_logprobs_as_probabilities():
     assert probabilities[2]["token"] == "<UNSAFE-A2>"
 
 
-def test_risk_adapter_preserves_upstream_usage_in_response_and_request_log():
+def test_risk_signal_service_preserves_upstream_usage_in_response_and_request_log():
     upstream_usage = {
         "prompt_tokens": 139,
         "completion_tokens": 1,
@@ -136,7 +136,7 @@ def test_risk_adapter_preserves_upstream_usage_in_response_and_request_log():
     handler = logging.StreamHandler(stream)
     logger.addHandler(handler)
     try:
-        client = TestClient(create_risk_adapter_app(settings(), FakeRiskClients(prompt_usage=upstream_usage)))
+        client = TestClient(create_risk_signal_service_app(settings(), FakeRiskClients(prompt_usage=upstream_usage)))
         response = client.post(
             "/v1/risk/detectors/prompt/assessments",
             headers=auth_headers(),
@@ -162,8 +162,8 @@ def test_risk_adapter_preserves_upstream_usage_in_response_and_request_log():
     assert completed[-1]["completion_tokens"] == 1
     assert completed[-1]["total_tokens"] == 140
 
-def test_risk_adapter_safe_label_uses_null_code():
-    client = TestClient(create_risk_adapter_app(settings(), FakeRiskClients(prompt_label="<SAFE>")))
+def test_risk_signal_service_safe_label_uses_null_code():
+    client = TestClient(create_risk_signal_service_app(settings(), FakeRiskClients(prompt_label="<SAFE>")))
     response = client.post("/v1/risk/detectors/prompt/assessments", headers=auth_headers(), json={"prompt": "hello"})
     body = response.json()
     Draft202012Validator(risk_schema()).validate(body)
@@ -173,8 +173,8 @@ def test_risk_adapter_safe_label_uses_null_code():
     assert "usage" not in body
 
 
-def test_risk_adapter_aggregate_partial_on_detector_timeout():
-    client = TestClient(create_risk_adapter_app(settings(), FakeRiskClients(prompt_fail=True)))
+def test_risk_signal_service_aggregate_partial_on_detector_timeout():
+    client = TestClient(create_risk_signal_service_app(settings(), FakeRiskClients(prompt_fail=True)))
     response = client.post("/v1/risk/assessments", headers=auth_headers(), json={"prompt": "hello"})
     assert response.status_code == 200
     body = response.json()
@@ -184,10 +184,10 @@ def test_risk_adapter_aggregate_partial_on_detector_timeout():
     assert body["system_signal_detected"] is True
 
 
-def test_risk_adapter_parse_failure_is_parse_error_system_signal():
+def test_risk_signal_service_parse_failure_is_parse_error_system_signal():
     usage = {"prompt_tokens": 139, "completion_tokens": 1, "total_tokens": 140}
     client = TestClient(
-        create_risk_adapter_app(
+        create_risk_signal_service_app(
             settings(),
             FakeRiskClients(prompt_label="not-a-label", prompt_usage=usage),
         )
@@ -201,8 +201,8 @@ def test_risk_adapter_parse_failure_is_parse_error_system_signal():
     assert body["usage"] == usage
 
 
-def test_risk_adapter_rejects_multiple_or_explanatory_labels():
-    client = TestClient(create_risk_adapter_app(settings(), FakeRiskClients(prompt_label="result: <SAFE> <UNSAFE-A1>")))
+def test_risk_signal_service_rejects_multiple_or_explanatory_labels():
+    client = TestClient(create_risk_signal_service_app(settings(), FakeRiskClients(prompt_label="result: <SAFE> <UNSAFE-A1>")))
     response = client.post("/v1/risk/detectors/prompt/assessments", headers=auth_headers(), json={"prompt": "hello"})
     body = response.json()
     Draft202012Validator(risk_schema()).validate(body)
@@ -210,8 +210,8 @@ def test_risk_adapter_rejects_multiple_or_explanatory_labels():
     assert body["strongest_code"] == "PARSE_ERROR"
 
 
-def test_risk_adapter_rejects_extra_fields_and_oversized_prompt():
-    client = TestClient(create_risk_adapter_app(settings(), FakeRiskClients()))
+def test_risk_signal_service_rejects_extra_fields_and_oversized_prompt():
+    client = TestClient(create_risk_signal_service_app(settings(), FakeRiskClients()))
     response = client.post("/v1/risk/assessments", headers=auth_headers(), json={"prompt": "hello", "decision": "allow"})
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
@@ -222,28 +222,28 @@ def test_risk_adapter_rejects_extra_fields_and_oversized_prompt():
     Draft202012Validator(error_schema()).validate(response.json())
 
 
-def test_risk_adapter_metrics_records_assessment_and_system_signals():
-    client = TestClient(create_risk_adapter_app(settings(), FakeRiskClients(prompt_label="not-a-label")))
+def test_risk_signal_service_metrics_records_assessment_and_system_signals():
+    client = TestClient(create_risk_signal_service_app(settings(), FakeRiskClients(prompt_label="not-a-label")))
     client.post("/v1/risk/detectors/prompt/assessments", headers=auth_headers(), json={"prompt": "hello"})
     response = client.get("/metrics")
     assert response.headers["content-type"].startswith("text/plain")
     metrics = response.text
     assert not metrics.rstrip().endswith("# EOF")
     assert 'risk_assessments_total{detector="prompt",service="risk-signal-service",status="failed"}' in metrics
-    assert 'risk_adapter_system_signal_total{service="risk-signal-service",system_signal_code="PARSE_ERROR"}' in metrics
+    assert 'risk_signal_service_system_signal_total{service="risk-signal-service",system_signal_code="PARSE_ERROR"}' in metrics
 
 
-def test_risk_adapter_rejects_oversized_request_body():
+def test_risk_signal_service_rejects_oversized_request_body():
     cfg = settings()
     cfg = dataclasses.replace(cfg, max_request_body_bytes=32)
-    client = TestClient(create_risk_adapter_app(cfg, FakeRiskClients()))
+    client = TestClient(create_risk_signal_service_app(cfg, FakeRiskClients()))
     response = client.post("/v1/risk/assessments", headers=auth_headers(), json={"prompt": "x" * 100})
     assert response.status_code == 413
     assert response.json()["error"]["code"] == "REQUEST_TOO_LARGE"
     Draft202012Validator(error_schema()).validate(response.json())
 
 
-def test_risk_adapter_treats_detector_model_mismatch_as_parse_system_signal():
+def test_risk_signal_service_treats_detector_model_mismatch_as_parse_system_signal():
     class MismatchedDetectorClient(FakeDetectorClient):
         async def post_json(self, path, payload):
             self.last_payload = payload
@@ -257,7 +257,7 @@ def test_risk_adapter_treats_detector_model_mismatch_as_parse_system_signal():
 
     clients = FakeRiskClients()
     clients.prompt = MismatchedDetectorClient("<SAFE>")
-    client = TestClient(create_risk_adapter_app(settings(), clients))
+    client = TestClient(create_risk_signal_service_app(settings(), clients))
     response = client.post("/v1/risk/detectors/prompt/assessments", headers=auth_headers(), json={"prompt": "hello"})
     body = response.json()
     Draft202012Validator(risk_schema()).validate(body)
@@ -265,26 +265,26 @@ def test_risk_adapter_treats_detector_model_mismatch_as_parse_system_signal():
     assert body["system_signals"][0]["code"] == "PARSE_ERROR"
 
 
-def test_risk_adapter_validation_rejection_metric_uses_safe_reason_label():
-    client = TestClient(create_risk_adapter_app(settings(), FakeRiskClients()))
+def test_risk_signal_service_validation_rejection_metric_uses_safe_reason_label():
+    client = TestClient(create_risk_signal_service_app(settings(), FakeRiskClients()))
     client.post("/v1/risk/assessments", headers=auth_headers(), json={"prompt": "hello", "extra": "no"})
     metrics = client.get("/metrics").text
     assert 'request_validation_rejections_total{reason="risk_prompt",service="risk-signal-service"}' in metrics
 
 
-def test_risk_adapter_rejects_whitespace_only_prompt():
-    client = TestClient(create_risk_adapter_app(settings(), FakeRiskClients()))
+def test_risk_signal_service_rejects_whitespace_only_prompt():
+    client = TestClient(create_risk_signal_service_app(settings(), FakeRiskClients()))
     response = client.post("/v1/risk/assessments", headers=auth_headers(), json={"prompt": "   "})
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
     Draft202012Validator(error_schema()).validate(response.json())
 
 
-def test_risk_adapter_returns_truncated_input_signal_before_detector_call():
+def test_risk_signal_service_returns_truncated_input_signal_before_detector_call():
     clients = FakeRiskClients(prompt_label="<SAFE>")
     cfg = settings()
     cfg = dataclasses.replace(cfg, risk_input_max_chars=4)
-    client = TestClient(create_risk_adapter_app(cfg, clients))
+    client = TestClient(create_risk_signal_service_app(cfg, clients))
 
     response = client.post(
         "/v1/risk/detectors/prompt/assessments",
@@ -314,7 +314,7 @@ def test_risk_prompt_assessment_logs_prompt_and_response_when_flag_enabled():
     logger = logging.getLogger("ai_model_serving.risk-signal-service")
     logger.addHandler(handler)
     try:
-        client = TestClient(create_risk_adapter_app(cfg, clients))
+        client = TestClient(create_risk_signal_service_app(cfg, clients))
         response = client.post(
             "/v1/risk/detectors/prompt/assessments",
             headers=auth_headers(),
@@ -342,7 +342,7 @@ def test_risk_prompt_assessment_omits_request_response_body_when_flag_disabled()
     logger = logging.getLogger("ai_model_serving.risk-signal-service")
     logger.addHandler(handler)
     try:
-        client = TestClient(create_risk_adapter_app(settings(), clients))
+        client = TestClient(create_risk_signal_service_app(settings(), clients))
         response = client.post(
             "/v1/risk/detectors/prompt/assessments",
             headers=auth_headers(),

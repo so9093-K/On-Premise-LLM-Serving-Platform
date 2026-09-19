@@ -65,12 +65,12 @@ def prometheus_scrape_config_document(
     stack = monitoring.get("monitoring_stack", {})
     metric_sources = monitoring.get("metric_sources", {})
     gateway = metric_sources.get("gateway", {})
-    risk = metric_sources.get("risk_adapter", {})
+    risk = metric_sources.get("risk_signal_service", {})
     vllm = metric_sources.get("vllm_instances", {})
     dcgm = stack.get("dcgm_exporter", {})
     cadvisor = stack.get("cadvisor", {})
     gateway_service = str(services["gateway"]["compose_service"])
-    risk_service = str(services["risk_adapter"]["compose_service"])
+    risk_service = str(services["risk_signal_service"]["compose_service"])
     dcgm_service = str(services["dcgm_exporter"]["compose_service"])
     cadvisor_service = str(services["cadvisor"]["compose_service"])
     static_vllm_configs = [
@@ -101,7 +101,7 @@ def prometheus_scrape_config_document(
                 "job_name": "risk-signal-service",
                 "metrics_path": risk.get("metrics_path", "/metrics"),
                 "bearer_token_file": "/run/secrets/admin_api_key",
-                "static_configs": [{"targets": [f"{risk_service}:{services['risk_adapter']['container_port']}"]}],
+                "static_configs": [{"targets": [f"{risk_service}:{services['risk_signal_service']['container_port']}"]}],
             },
             {
                 "job_name": vllm.get("scrape_job", "vllm-runtimes"),

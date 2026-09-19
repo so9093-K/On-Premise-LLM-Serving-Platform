@@ -7,11 +7,11 @@ from fastapi.responses import JSONResponse
 
 from ...app_kernel import readiness_response
 from ...logging_policy import record_readiness_failure
-from ..endpoint_spec import RISK_ADAPTER_ENDPOINTS
+from ..endpoint_spec import RISK_SIGNAL_SERVICE_ENDPOINTS
 from ...api_examples import risk_loading_response_example, risk_ready_response_example
 from ...services.readiness import DependencyProbe, collect_readiness
 
-_RA = {(s.method, s.path): s for s in RISK_ADAPTER_ENDPOINTS}
+_RISK_SIGNAL_SERVICE = {(s.method, s.path): s for s in RISK_SIGNAL_SERVICE_ENDPOINTS}
 
 
 async def _readiness(
@@ -45,7 +45,7 @@ async def _readiness(
 def build_router(admin_dependencies: list, clients: Any, metrics: Any, settings: Any) -> APIRouter:
     router = APIRouter()
 
-    _s = _RA[("GET", "/ready")]
+    _s = _RISK_SIGNAL_SERVICE[("GET", "/ready")]
 
     @router.get(
         "/ready",
@@ -76,7 +76,7 @@ def build_router(admin_dependencies: list, clients: Any, metrics: Any, settings:
         record_readiness_failure(request, body)
         return readiness_response(body)
 
-    _s = _RA[("GET", "/metrics")]
+    _s = _RISK_SIGNAL_SERVICE[("GET", "/metrics")]
 
     @router.get(
         "/metrics",

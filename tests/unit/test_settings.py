@@ -255,9 +255,9 @@ def test_load_settings_rejects_invalid_or_missing_required_model_configuration(t
         load_settings(root)
 
     serving = yaml.safe_load((repo / "configs" / "model_serving.yaml").read_text(encoding="utf-8"))
-    serving["risk_adapter"].pop("detectors")
+    serving["risk_signal_service"].pop("detectors")
     serving_path.write_text(yaml.safe_dump(serving, allow_unicode=True), encoding="utf-8")
-    with pytest.raises(RuntimeError, match="risk_adapter.detectors must be a non-empty mapping"):
+    with pytest.raises(RuntimeError, match="risk_signal_service.detectors must be a non-empty mapping"):
         load_settings(root)
 
 
@@ -310,11 +310,11 @@ def test_load_settings_uses_canonical_risk_signal_service_application_env(monkey
 
     settings = load_settings()
 
-    assert settings.risk_adapter_base_url == "http://canonical-risk:9505"
-    assert settings.risk_adapter_timeout_seconds == 16
+    assert settings.risk_signal_service_base_url == "http://canonical-risk:9505"
+    assert settings.risk_signal_service_timeout_seconds == 16
 
 
-def test_load_settings_rejects_risk_adapter_timeout_below_sequential_budget(monkeypatch):
+def test_load_settings_rejects_risk_signal_service_timeout_below_sequential_budget(monkeypatch):
     monkeypatch.setenv("RISK_SIGNAL_SERVICE_TIMEOUT_SECONDS", "6")
     with pytest.raises(RuntimeError, match="RISK_SIGNAL_SERVICE_TIMEOUT_SECONDS"):
         load_settings()
@@ -382,8 +382,8 @@ def _minimal_settings_kwargs() -> dict:
             internal_service_token="internal",
         ),
         "gateway_timeout_seconds": 1,
-        "risk_adapter_timeout_seconds": 1,
-        "risk_adapter_base_url": "http://risk",
+        "risk_signal_service_timeout_seconds": 1,
+        "risk_signal_service_base_url": "http://risk",
         "runtime_endpoints": {"main_llm": main_endpoint, "embedding": endpoint},
         "default_embedding_model": "local-embed",
         "default_retrieval_model": "local-embed",

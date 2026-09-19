@@ -25,13 +25,13 @@ from ..services.risk_assessment import RiskAssessmentService
 from ..security import require_bearer_auth
 from ..settings import AppSettings, SecuritySettings, load_settings
 from ..upstream import RuntimeClient
-from ..api_descriptions import RISK_ADAPTER_DESCRIPTION_TEMPLATE, RISK_ADAPTER_TAGS_METADATA
+from ..api_descriptions import RISK_SIGNAL_SERVICE_DESCRIPTION_TEMPLATE, RISK_SIGNAL_SERVICE_TAGS_METADATA
 from ..api_examples import AGGREGATE_EXAMPLES, PROMPT_EXAMPLES, PII_EXAMPLES, SECRET_EXAMPLES
-from ..api.endpoint_spec import RISK_ADAPTER_ENDPOINTS, error_codes_from_specs, schema_maps_from_specs
+from ..api.endpoint_spec import RISK_SIGNAL_SERVICE_ENDPOINTS, error_codes_from_specs, schema_maps_from_specs
 
-_RA_SPECS = {(spec.method, spec.path): spec for spec in RISK_ADAPTER_ENDPOINTS}
-from ..api.routers.risk_adapter_ops import build_router as _build_ops_router
-from ..api.routers.risk_adapter_risk import build_router as _build_risk_router
+_RISK_SIGNAL_SERVICE_SPECS = {(spec.method, spec.path): spec for spec in RISK_SIGNAL_SERVICE_ENDPOINTS}
+from ..api.routers.risk_signal_service_ops import build_router as _build_ops_router
+from ..api.routers.risk_signal_service_risk import build_router as _build_risk_router
 
 
 class RiskClients:
@@ -90,7 +90,7 @@ def _ensure_detector_client_map(clients: Any) -> dict[str, Any]:
     return detectors
 
 
-def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskClients | None = None) -> FastAPI:
+def create_risk_signal_service_app(settings: AppSettings | None = None, clients: RiskClients | None = None) -> FastAPI:
     settings = settings or load_settings()
     clients = clients or RiskClients(settings)
     _ensure_detector_client_map(clients)
@@ -119,9 +119,9 @@ def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskCl
     app = create_service_app(
         title="Risk Signal Service",
         version=settings.project_version,
-        description=RISK_ADAPTER_DESCRIPTION_TEMPLATE,
+        description=RISK_SIGNAL_SERVICE_DESCRIPTION_TEMPLATE,
         settings=settings,
-        tags_metadata=RISK_ADAPTER_TAGS_METADATA,
+        tags_metadata=RISK_SIGNAL_SERVICE_TAGS_METADATA,
         lifespan_resources=(clients,),
     )
 
@@ -132,17 +132,17 @@ def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskCl
 
     install_exception_handlers(app, metrics=metrics, logger=logger, validation_reason=validation_reason)
     register_documentation_ui(app, settings=settings, title="Risk Signal Service")
-    register_health(app, service="risk-signal-service", spec=_RA_SPECS[("GET", "/health")])
+    register_health(app, service="risk-signal-service", spec=_RISK_SIGNAL_SERVICE_SPECS[("GET", "/health")])
 
     app.include_router(_build_ops_router(admin_dependencies, clients, metrics, settings))
     app.include_router(_build_risk_router(api_dependencies, service, settings))
 
-    _request_schemas, _response_schemas = schema_maps_from_specs(RISK_ADAPTER_ENDPOINTS)
+    _request_schemas, _response_schemas = schema_maps_from_specs(RISK_SIGNAL_SERVICE_ENDPOINTS)
     install_contract_openapi(
         app,
         request_schemas=_request_schemas,
         response_schemas=_response_schemas,
-        error_codes=error_codes_from_specs(RISK_ADAPTER_ENDPOINTS),
+        error_codes=error_codes_from_specs(RISK_SIGNAL_SERVICE_ENDPOINTS),
         request_examples={
             ("POST", "/v1/risk/detectors/prompt/assessments"): PROMPT_EXAMPLES,
             ("POST", "/v1/risk/detectors/pii/assessments"): PII_EXAMPLES,

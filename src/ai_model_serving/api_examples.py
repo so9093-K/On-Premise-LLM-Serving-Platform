@@ -36,7 +36,7 @@ def _reference_dependency_endpoints() -> dict[str, str]:
         "main_llm_vllm": dependency_endpoint(str(models["main_llm"]["endpoint"]), "models"),
         "embedding_vllm": dependency_endpoint(str(models["embedding"]["endpoint"]), "models"),
         "risk_prompt_vllm": dependency_endpoint(str(models["risk_prompt"]["endpoint"]), "models"),
-        "risk_adapter": dependency_endpoint(str(document["risk_adapter"]["endpoint"]), "/ready"),
+        "risk_signal_service": dependency_endpoint(str(document["risk_signal_service"]["endpoint"]), "/ready"),
     }
 
 # ---------------------------------------------------------------------------
@@ -97,9 +97,9 @@ def ready_response_example() -> dict[str, Any]:
                 "endpoint": endpoints["embedding_vllm"],
             },
             {
-                "name": "risk_adapter",
+                "name": "risk-signal-service",
                 "status": "ready",
-                "endpoint": endpoints["risk_adapter"],
+                "endpoint": endpoints["risk_signal_service"],
             },
         ],
     }
@@ -111,8 +111,8 @@ def loading_response_example() -> dict[str, Any]:
         "status": "not_ready",
         "service": "gateway",
         "phase": "waiting_for_dependencies",
-        "not_ready_dependencies": ["risk_adapter"],
-        "required_not_ready_dependencies": ["risk_adapter"],
+        "not_ready_dependencies": ["risk-signal-service"],
+        "required_not_ready_dependencies": ["risk-signal-service"],
         "optional_not_ready_dependencies": [],
         "dependencies": [
             {
@@ -121,9 +121,9 @@ def loading_response_example() -> dict[str, Any]:
                 "endpoint": endpoints["main_llm_vllm"],
             },
             {
-                "name": "risk_adapter",
+                "name": "risk-signal-service",
                 "status": "not_ready",
-                "endpoint": endpoints["risk_adapter"],
+                "endpoint": endpoints["risk_signal_service"],
                 "message": "waiting for Risk Signal Service dependencies: risk_prompt_vllm",
             },
         ],

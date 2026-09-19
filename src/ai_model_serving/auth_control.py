@@ -235,7 +235,7 @@ def auth_status_document(settings: AppSettings, project_root: Path, env_path: Pa
             "app_level_cidr_enforcement": False,
         },
         "internal_services": {
-            "gateway_to_risk_adapter": "internal_token_required" if settings.security.internal_service_auth_required else "unauthenticated",
+            "gateway_to_risk_signal_service": "internal_token_required" if settings.security.internal_service_auth_required else "unauthenticated",
         },
         "exposure": {
             "exposure_mode": exposure_mode,
@@ -517,7 +517,7 @@ def render_auth_status(settings: AppSettings, project_root: Path, env_path: Path
     lines.append(f"  internal_only 선언    {doc['admin_endpoints']['internal_only_declared']}")
     lines.append(f"  app CIDR enforcement  {doc['admin_endpoints']['app_level_cidr_enforcement']}")
     lines.extend(["", "Internal service"])
-    lines.append(f"  Gateway -> Risk Adapter {doc['internal_services']['gateway_to_risk_adapter']}")
+    lines.append(f"  Gateway -> Risk Signal Service {doc['internal_services']['gateway_to_risk_signal_service']}")
     lines.extend(["", "Exposure"])
     exposure = doc["exposure"]
     canonical = exposure["canonical_mode"]

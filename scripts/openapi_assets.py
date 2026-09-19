@@ -41,14 +41,14 @@ def build_generated_openapi() -> tuple[dict[str, dict[str, Any]], list[dict[str,
     os.environ.update(STRICT_ENV)
     try:
         from ai_model_serving.apps.gateway import create_gateway_app
-        from ai_model_serving.apps.risk_adapter import create_risk_adapter_app
+        from ai_model_serving.apps.risk_signal_service import create_risk_signal_service_app
         from ai_model_serving.settings import load_settings
 
         settings = load_settings(root=ROOT)
         policies = settings.main_model_profile_policies
         return {
             "gateway": create_gateway_app(settings=settings).openapi(),
-            "risk-signal-service": create_risk_adapter_app(settings=settings).openapi(),
+            "risk-signal-service": create_risk_signal_service_app(settings=settings).openapi(),
         }, policies
     finally:
         for key, value in previous.items():

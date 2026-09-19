@@ -177,7 +177,7 @@ models:
       fixed_parameters:
         max_tokens: 1
         temperature: 0
-risk_adapter:
+risk_signal_service:
   # PII·secret·prompt detector를 조합하는 내부 서비스 정책이다.
   endpoint: http://risk-signal-service:9405
   detectors:
@@ -252,7 +252,7 @@ timeouts:
   # 환경변수로 재정의할 수 있는 요청 시간 제한이다.
   gateway_request_seconds: 125
   vllm_request_seconds: 20
-  risk_adapter_seconds: 15
+  risk_signal_service_seconds: 15
 operational_limits:
   # 모든 upstream client에 공통 적용하는 기본 제한이다.
   max_request_body_bytes: 100000000

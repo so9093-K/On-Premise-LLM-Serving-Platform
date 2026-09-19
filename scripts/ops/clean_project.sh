@@ -19,7 +19,7 @@ for option in "$@"; do
 done
 
 running=()
-for name in gateway risk_adapter metal; do
+for name in gateway risk_signal_service metal; do
   pid_file="$ROOT/run/${name}.pid"
   if [[ -f "$pid_file" ]] && kill -0 "$(cat "$pid_file")" >/dev/null 2>&1; then
     running+=("${name}:$(cat "$pid_file")")

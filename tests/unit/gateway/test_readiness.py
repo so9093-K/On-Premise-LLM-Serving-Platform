@@ -15,19 +15,19 @@ def test_gateway_health_and_ready():
     assert ready["not_ready_dependencies"] == []
 
 
-def test_gateway_ready_forwards_admin_token_to_risk_adapter_readiness():
+def test_gateway_ready_forwards_admin_token_to_risk_signal_service_readiness():
     clients = FakeGatewayClients()
     client = TestClient(create_gateway_app(admin_settings(), clients))
     response = client.get("/ready", headers={"Authorization": "Bearer admin-test-key"})
     assert response.status_code == 200
     assert response.json()["status"] == "ready"
-    assert clients.risk_adapter.last_path == "/ready"
-    assert clients.risk_adapter.last_headers == {"authorization": "Bearer admin-test-key"}
+    assert clients.risk_signal_service.last_path == "/ready"
+    assert clients.risk_signal_service.last_headers == {"authorization": "Bearer admin-test-key"}
 
 
-def test_gateway_readiness_reflects_risk_adapter_body_status():
+def test_gateway_readiness_reflects_risk_signal_service_body_status():
     clients = FakeGatewayClients()
-    clients.risk_adapter = FakeRuntimeClient(
+    clients.risk_signal_service = FakeRuntimeClient(
         get_response={
             "status": "not_ready",
             "service": "risk-signal-service",
@@ -43,9 +43,9 @@ def test_gateway_readiness_reflects_risk_adapter_body_status():
     body = response.json()
     assert body["status"] == "not_ready"
     assert body["phase"] == "waiting_for_dependencies"
-    assert body["not_ready_dependencies"] == ["risk_adapter"]
-    assert {item["name"]: item["status"] for item in body["dependencies"]}["risk_adapter"] == "not_ready"
-    risk_dependency = next(item for item in body["dependencies"] if item["name"] == "risk_adapter")
+    assert body["not_ready_dependencies"] == ["risk-signal-service"]
+    assert {item["name"]: item["status"] for item in body["dependencies"]}["risk-signal-service"] == "not_ready"
+    risk_dependency = next(item for item in body["dependencies"] if item["name"] == "risk-signal-service")
     assert risk_dependency["endpoint"] == "http://risk/ready"
     assert "risk_prompt_vllm" in risk_dependency["message"]
 

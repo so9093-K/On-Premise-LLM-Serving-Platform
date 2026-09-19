@@ -143,7 +143,7 @@ def validate_risk_schema() -> None:
     if not list(validator.iter_errors(incomplete_usage)):
         raise SystemExit('risk schema must reject an incomplete usage object')
 
-    configured = set(read_yaml('configs/model_serving.yaml')['risk_adapter']['forbidden_response_fields'])
+    configured = set(read_yaml('configs/model_serving.yaml')['risk_signal_service']['forbidden_response_fields'])
     if configured != FORBIDDEN_RESPONSE_FIELDS:
         raise SystemExit(f'forbidden field list mismatch: config={configured}, expected={FORBIDDEN_RESPONSE_FIELDS}')
 

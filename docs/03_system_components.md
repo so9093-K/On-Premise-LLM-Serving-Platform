@@ -702,8 +702,8 @@ Risk Signal Service는 다음 책임을 소유하지 않는다.
 
 | 영역 | 주요 위치 |
 |---|---|
-| Risk Signal Service application | `src/ai_model_serving/apps/risk_adapter.py` |
-| Risk API | `src/ai_model_serving/api/routers/risk_adapter_risk.py` |
+| Risk Signal Service application | `src/ai_model_serving/apps/risk_signal_service.py` |
+| Risk API | `src/ai_model_serving/api/routers/risk_signal_service_risk.py` |
 | Assessment orchestration | `src/ai_model_serving/services/risk_assessment.py` |
 | PII detector | `src/ai_model_serving/detectors/pii.py` |
 | Secret detector | `src/ai_model_serving/detectors/secret.py` |

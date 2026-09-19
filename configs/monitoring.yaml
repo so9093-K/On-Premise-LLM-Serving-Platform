@@ -40,13 +40,13 @@ metric_sources:
     - streaming_chunks_per_response_bucket
     - streaming_client_disconnects_total
     - request_validation_rejections_total
-  risk_adapter:
+  risk_signal_service:
     metrics_path: /metrics
     required_metrics:
     - risk_assessments_total
     - risk_assessment_duration_seconds
     - risk_signal_detected_total
-    - risk_adapter_system_signal_total
+    - risk_signal_service_system_signal_total
     - forbidden_response_field_total
     - service_readiness_status
   vllm_instances:

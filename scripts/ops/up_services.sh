@@ -15,7 +15,7 @@ PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || comma
 GATEWAY_HOST="${GATEWAY_HOST:-127.0.0.1}"
 RISK_SIGNAL_SERVICE_HOST="${RISK_SIGNAL_SERVICE_HOST:-127.0.0.1}"
 GATEWAY_PORT="${GATEWAY_PORT:-$(service_default_host_port gateway)}"
-RISK_SIGNAL_SERVICE_PORT="${RISK_SIGNAL_SERVICE_PORT:-$(service_default_host_port risk_adapter)}"
+RISK_SIGNAL_SERVICE_PORT="${RISK_SIGNAL_SERVICE_PORT:-$(service_default_host_port risk_signal_service)}"
 STARTUP_WAIT_SECONDS="${STARTUP_WAIT_SECONDS:-90}"
 
 start_service() {
@@ -66,8 +66,8 @@ wait_for_health() {
 start_service gateway ai_model_serving.apps.gateway_asgi:app "$GATEWAY_HOST" "$GATEWAY_PORT"
 wait_for_health gateway "http://${GATEWAY_HOST}:${GATEWAY_PORT}"
 
-start_service risk_adapter ai_model_serving.apps.risk_adapter_asgi:app "$RISK_SIGNAL_SERVICE_HOST" "$RISK_SIGNAL_SERVICE_PORT"
-wait_for_health risk_adapter "http://${RISK_SIGNAL_SERVICE_HOST}:${RISK_SIGNAL_SERVICE_PORT}"
+start_service risk_signal_service ai_model_serving.apps.risk_signal_service_asgi:app "$RISK_SIGNAL_SERVICE_HOST" "$RISK_SIGNAL_SERVICE_PORT"
+wait_for_health risk_signal_service "http://${RISK_SIGNAL_SERVICE_HOST}:${RISK_SIGNAL_SERVICE_PORT}"
 
 cat <<MSG
 [up] Gateway and Risk Signal Service processes started and passed /health.

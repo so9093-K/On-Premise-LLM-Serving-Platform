@@ -38,7 +38,7 @@ def _user_facing_paths(root: Path) -> list[Path]:
         root / "src" / "ai_model_serving" / "api" / "routers" / "gateway_runtime_control.py",
         root / "src" / "ai_model_serving" / "api" / "routers" / "gateway_ops.py",
         root / "src" / "ai_model_serving" / "apps" / "runtime_controller.py",
-        root / "src" / "ai_model_serving" / "apps" / "risk_adapter.py",
+        root / "src" / "ai_model_serving" / "apps" / "risk_signal_service.py",
         root / "src" / "ai_model_serving" / "services" / "gateway_service.py",
         root / "src" / "ai_model_serving" / "security.py",
         root / "scripts" / "validation" / "runtime" / "cli.py",
@@ -58,6 +58,22 @@ def _user_facing_paths(root: Path) -> list[Path]:
     return [path for path in paths if path.is_file()]
 
 
+def _active_identifier_paths(root: Path) -> list[Path]:
+    patterns = (
+        "src/**/*.py",
+        "scripts/**/*.py",
+        "scripts/**/*.sh",
+        "configs/**/*.yaml",
+        "ops/compose/**/*.yaml",
+        "tests/**/*.py",
+        "specs/*.yaml",
+    )
+    paths: set[Path] = set()
+    for pattern in patterns:
+        paths.update(path for path in root.glob(pattern) if path.is_file())
+    return sorted(paths)
+
+
 def terminology_violations(root: Path = ROOT) -> list[str]:
     violations: list[str] = []
     for path in _user_facing_paths(root):
@@ -71,6 +87,28 @@ def terminology_violations(root: Path = ROOT) -> list[str]:
                         f"{path.relative_to(root)}:{line_number}: noncanonical display term "
                         f"{legacy!r}; use {canonical!r}"
                     )
+
+    legacy_env_migration_paths = {
+        Path("configs/env_contract.yaml"),
+        Path("tests/unit/test_risk_signal_host_env_migration.py"),
+        Path("tests/unit/test_risk_signal_application_env_migration.py"),
+    }
+    for path in _active_identifier_paths(root):
+        text = path.read_text(encoding="utf-8")
+        relative = path.relative_to(root)
+        if relative == Path("scripts/validation/governance/terminology.py"):
+            continue
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            if "risk_adapter" in line:
+                violations.append(
+                    f"{relative}:{line_number}: retired internal identifier "
+                    "'risk_adapter'; use 'risk_signal_service'"
+                )
+            if "RISK_ADAPTER_" in line and relative not in legacy_env_migration_paths:
+                violations.append(
+                    f"{relative}:{line_number}: retired Risk Signal Service symbol/env identifier "
+                    "'RISK_ADAPTER_*'; use the canonical Risk Signal Service namespace"
+                )
 
     return violations
 

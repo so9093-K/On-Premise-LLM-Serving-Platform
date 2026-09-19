@@ -83,7 +83,7 @@ paths:
                 - name: embedding_vllm
                   status: ready
                   endpoint: http://embedding-vllm:9402/v1/models
-                - name: risk_adapter
+                - name: risk-signal-service
                   status: ready
                   endpoint: http://risk-signal-service:9405/ready
         '401':
@@ -115,15 +115,15 @@ paths:
                 service: gateway
                 phase: waiting_for_dependencies
                 not_ready_dependencies:
-                - risk_adapter
+                - risk-signal-service
                 required_not_ready_dependencies:
-                - risk_adapter
+                - risk-signal-service
                 optional_not_ready_dependencies: []
                 dependencies:
                 - name: main_llm_vllm
                   status: ready
                   endpoint: http://main-llm-vllm:9401/v1/models
-                - name: risk_adapter
+                - name: risk-signal-service
                   status: not_ready
                   endpoint: http://risk-signal-service:9405/ready
                   message: 'waiting for Risk Signal Service dependencies: risk_prompt_vllm'

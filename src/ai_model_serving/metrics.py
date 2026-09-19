@@ -87,8 +87,8 @@ class Metrics:
             registry=self.registry,
         )
         self.risk_system_signal = Counter(
-            "risk_adapter_system_signal_total",
-            "Risk adapter system signals by code.",
+            "risk_signal_service_system_signal_total",
+            "Risk Signal Service system signals by code.",
             ["service", "system_signal_code"],
             registry=self.registry,
         )

@@ -104,7 +104,7 @@ def _risk_detectors() -> tuple[RiskDetectorSettings, ...]:
     from ai_model_serving.settings import _risk_detectors_from_config
 
     document = load_yaml_mapping(resolve_project_root() / "configs" / "model_serving.yaml")
-    return _risk_detectors_from_config(document["risk_adapter"])
+    return _risk_detectors_from_config(document["risk_signal_service"])
 
 
 def settings() -> AppSettings:
@@ -121,7 +121,7 @@ def settings() -> AppSettings:
             internal_service_token="internal-test-key",
         ),
         gateway_timeout_seconds=1,
-        risk_adapter_timeout_seconds=1,
+        risk_signal_service_timeout_seconds=1,
         runtime_endpoints={"main_llm": endpoint, "embedding": embedding, "risk_prompt": risk_prompt},
         required_runtime_keys=frozenset({"main_llm", "embedding", "risk_prompt"}),
         controllable_runtime_keys=frozenset({"embedding", "risk_prompt"}),
@@ -129,7 +129,7 @@ def settings() -> AppSettings:
         # 둬야 production과 같은 이름으로 검증된다.
         runtime_service_ids=_runtime_service_ids(),
         risk_detectors=_risk_detectors(),
-        risk_adapter_base_url="http://risk",
+        risk_signal_service_base_url="http://risk",
         embedding_profiles={
             "test-embed": EmbeddingProfile(
                 model="test-embed",

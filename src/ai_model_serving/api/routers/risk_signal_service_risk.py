@@ -5,12 +5,12 @@ from typing import Any
 
 from fastapi import APIRouter, Body, Request
 
-from ..endpoint_spec import RISK_ADAPTER_ENDPOINTS
+from ..endpoint_spec import RISK_SIGNAL_SERVICE_ENDPOINTS
 from ...contracts import read_risk_prompt
 from ...logging_policy import record_request_response_preview, record_upstream_response
 from ...settings import AppSettings
 
-_RA = {(s.method, s.path): s for s in RISK_ADAPTER_ENDPOINTS}
+_RISK_SIGNAL_SERVICE = {(s.method, s.path): s for s in RISK_SIGNAL_SERVICE_ENDPOINTS}
 
 
 def _risk_response_preview(response: dict[str, Any]) -> str:
@@ -29,7 +29,7 @@ def build_router(api_dependencies: list, service: Any, settings: AppSettings) ->
                 response_text=_risk_response_preview(response),
             )
 
-    _s = _RA[("POST", "/v1/risk/detectors/prompt/assessments")]
+    _s = _RISK_SIGNAL_SERVICE[("POST", "/v1/risk/detectors/prompt/assessments")]
 
     @router.post(
         "/v1/risk/detectors/prompt/assessments",
@@ -52,7 +52,7 @@ def build_router(api_dependencies: list, service: Any, settings: AppSettings) ->
         _record_if_enabled(request, prompt=prompt, response=result)
         return result
 
-    _s = _RA[("POST", "/v1/risk/detectors/pii/assessments")]
+    _s = _RISK_SIGNAL_SERVICE[("POST", "/v1/risk/detectors/pii/assessments")]
 
     @router.post(
         "/v1/risk/detectors/pii/assessments",
@@ -75,7 +75,7 @@ def build_router(api_dependencies: list, service: Any, settings: AppSettings) ->
         _record_if_enabled(request, prompt=prompt, response=result)
         return result
 
-    _s = _RA[("POST", "/v1/risk/detectors/secret/assessments")]
+    _s = _RISK_SIGNAL_SERVICE[("POST", "/v1/risk/detectors/secret/assessments")]
 
     @router.post(
         "/v1/risk/detectors/secret/assessments",
@@ -98,7 +98,7 @@ def build_router(api_dependencies: list, service: Any, settings: AppSettings) ->
         _record_if_enabled(request, prompt=prompt, response=result)
         return result
 
-    _s = _RA[("POST", "/v1/risk/assessments")]
+    _s = _RISK_SIGNAL_SERVICE[("POST", "/v1/risk/assessments")]
 
     @router.post(
         "/v1/risk/assessments",

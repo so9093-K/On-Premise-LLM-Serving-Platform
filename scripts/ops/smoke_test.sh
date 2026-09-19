@@ -10,14 +10,14 @@ load_local_env "$ENV_FILE"
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
 "$PYTHON_BIN" scripts/build/check_python.py --context smoke-test >/dev/null
 # Smoke test는 항상 host에 노출된 포트를 대상으로 probe한다. .env의
-# RISK_ADAPTER_BASE_URL은 compose 내부용 URL(http://risk-signal-service:9405)이므로
+# RISK_SIGNAL_SERVICE_BASE_URL은 compose 내부용 URL(http://risk-signal-service:9405)이므로
 # 여기서 사용하면 안 된다.
 GATEWAY_PROBE_HOST="${GATEWAY_PROBE_HOST:-${GATEWAY_BIND_ADDR:-localhost}}"
 if [[ -z "$GATEWAY_PROBE_HOST" || "$GATEWAY_PROBE_HOST" == "0.0.0.0" ]]; then
   GATEWAY_PROBE_HOST="localhost"
 fi
 GATEWAY_BASE_URL="http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT:-$(service_default_host_port gateway)}"
-RISK_ADAPTER_BASE_URL="http://localhost:${RISK_SIGNAL_SERVICE_PORT:-$(service_default_host_port risk_adapter)}"
+RISK_SIGNAL_SERVICE_BASE_URL="http://localhost:${RISK_SIGNAL_SERVICE_PORT:-$(service_default_host_port risk_signal_service)}"
 API_KEY="$(local_env_first_value "$ENV_FILE" API_KEY API_KEYS || true)"
 # smoke는 일반 Gateway 경로를 그대로 호출한다. 별도 30초 상수를 두면 정상적인
 # admission queue 대기보다 먼저 실패해 배포 rollback의 원인이 된다. 명시적
@@ -74,7 +74,7 @@ print("default_embedding_model\t" + default_embedding_model)
 print("default_embedding_runtime\t" + required(embedding_profiles[default_embedding_model]["service_key"], "default embedding service_key"))
 print("default_retrieval_model\t" + retrieval_model)
 print("retrieval_runtime\t" + required(embedding_profiles[retrieval_model]["service_key"], "retrieval embedding service_key"))
-print("risk_prompt_runtime\t" + required(serving["risk_adapter"]["detectors"]["prompt"]["service_key"], "risk_adapter.detectors.prompt.service_key"))
+print("risk_prompt_runtime\t" + required(serving["risk_signal_service"]["detectors"]["prompt"]["service_key"], "risk_signal_service.detectors.prompt.service_key"))
 print("public_model_ids_json\t" + json.dumps(public_ids, separators=(",", ":")))
 PY
 )
@@ -270,17 +270,17 @@ fi
 # 접근 가능할 때만 직접 프로브를 실행하고, 아닐 경우 gateway 경유 테스트로 검증한다.
 if skip_runtime "$SMOKE_RISK_PROMPT_RUNTIME"; then
   :
-elif curl -sS --max-time 3 -o /dev/null "$RISK_ADAPTER_BASE_URL/health" 2>/dev/null; then
-  get_json risk-health "$RISK_ADAPTER_BASE_URL/health"
+elif curl -sS --max-time 3 -o /dev/null "$RISK_SIGNAL_SERVICE_BASE_URL/health" 2>/dev/null; then
+  get_json risk-health "$RISK_SIGNAL_SERVICE_BASE_URL/health"
   assert_json health
-  get_json risk-ready "$RISK_ADAPTER_BASE_URL/ready" admin
+  get_json risk-ready "$RISK_SIGNAL_SERVICE_BASE_URL/ready" admin
   assert_json ready
 
-  post_json_with_retry risk-prompt "$RISK_ADAPTER_BASE_URL/v1/risk/detectors/prompt/assessments" \
+  post_json_with_retry risk-prompt "$RISK_SIGNAL_SERVICE_BASE_URL/v1/risk/detectors/prompt/assessments" \
     '{"prompt":"smoke test prompt"}' internal
   assert_json risk
 
-  post_json_with_retry risk-aggregate "$RISK_ADAPTER_BASE_URL/v1/risk/assessments" \
+  post_json_with_retry risk-aggregate "$RISK_SIGNAL_SERVICE_BASE_URL/v1/risk/assessments" \
     '{"prompt":"smoke test prompt"}' internal
   assert_json risk
 else

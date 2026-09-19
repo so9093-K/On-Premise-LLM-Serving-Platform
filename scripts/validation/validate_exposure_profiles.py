@@ -32,13 +32,13 @@ except ModuleNotFoundError:
 
 _DEFAULT_PRIVATE_BLOCKED_CATEGORIES = (
     "model_runtime",
-    "risk_adapter",
+    "risk_signal_service",
     "operations_endpoint",
 )
 _DIAGNOSTIC_REQUIRED_CATEGORY_COVERAGE = (
     "gateway",
     "model_runtime",
-    "risk_adapter",
+    "risk_signal_service",
     "operations_endpoint",
     "visualization",
 )

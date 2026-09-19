@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = ROOT / "configs" / "macos_mlx_runtime.yaml"
 PID_PATH = ROOT / "run" / "metal.pid"
 # native runtime 로그는 runtime state에 둔다. 저장소의 logs/는 app-only 모드가
-# gateway.log/risk_adapter.log를 쓰는 곳이라(`make logs`가 그걸 tail한다) 성격이 다르다.
+# gateway.log/risk_signal_service.log를 쓰는 곳이라(`make logs`가 그걸 tail한다) 성격이 다르다.
 NATIVE_LOG_DIR = ROOT / ".runtime" / "metal" / "logs"
 # 수명주기 소유자마다 자기 파일을 갖는다. 하나를 공유하면 "누가 먼저 만들었는가"가
 # 동작을 가른다 -- TCC 보호 경로(~/Desktop 등)에서 launchd는 자기가 만들어
