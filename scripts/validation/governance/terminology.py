@@ -58,6 +58,22 @@ def _user_facing_paths(root: Path) -> list[Path]:
     return [path for path in paths if path.is_file()]
 
 
+def _active_identifier_paths(root: Path) -> list[Path]:
+    patterns = (
+        "src/**/*.py",
+        "scripts/**/*.py",
+        "scripts/**/*.sh",
+        "configs/**/*.yaml",
+        "ops/compose/**/*.yaml",
+        "tests/**/*.py",
+        "specs/*.yaml",
+    )
+    paths: set[Path] = set()
+    for pattern in patterns:
+        paths.update(path for path in root.glob(pattern) if path.is_file())
+    return sorted(paths)
+
+
 def terminology_violations(root: Path = ROOT) -> list[str]:
     violations: list[str] = []
     for path in _user_facing_paths(root):
@@ -71,6 +87,17 @@ def terminology_violations(root: Path = ROOT) -> list[str]:
                         f"{path.relative_to(root)}:{line_number}: noncanonical display term "
                         f"{legacy!r}; use {canonical!r}"
                     )
+
+    for path in _active_identifier_paths(root):
+        text = path.read_text(encoding="utf-8")
+        if "risk_adapter" not in text:
+            continue
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            if "risk_adapter" in line:
+                violations.append(
+                    f"{path.relative_to(root)}:{line_number}: retired internal identifier "
+                    "'risk_adapter'; use 'risk_signal_service'"
+                )
 
     return violations
 
