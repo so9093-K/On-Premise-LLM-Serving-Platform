@@ -79,7 +79,7 @@ class RuntimeValidator:
         self.safe_check("risk-signal-service-runtime", "risk-signal-service /ready", self.live_checks.check_risk_ready)
         for key, base in self.vllm_bases.items():
             self.safe_check("vllm-runtime", f"{key} /models", lambda key=key, base=base: self.live_checks.check_vllm_models(key, base))
-        detectors = self.model_serving.get("risk_adapter", {}).get("detectors", {})
+        detectors = self.model_serving.get("risk_signal_service", {}).get("detectors", {})
         for key, detector in detectors.items():
             if detector.get("enabled", True) is True:
                 route = str(detector.get("route", f"/v1/risk/detectors/{key}/assessments"))
@@ -124,7 +124,7 @@ class RuntimeValidator:
             run_when_supported(category, name, required, fn, response_type=response_type)
         metric_sources = self.monitoring["metric_sources"]
         gateway_metrics = metric_sources["gateway"]["required_metrics"]
-        risk_metrics = metric_sources["risk_adapter"]["required_metrics"]
+        risk_metrics = metric_sources["risk_signal_service"]["required_metrics"]
         self.safe_check("monitoring-scrape", "gateway metrics", lambda: self.live_checks.scrape_metrics("gateway", self.gateway_base, gateway_metrics))
         self.safe_check("monitoring-scrape", "risk-signal-service metrics", lambda: self.live_checks.scrape_metrics("risk-signal-service", self.risk_base, risk_metrics))
         # configs/performance/metrics.yaml의 vllm-cuda projection이 이 이름들에
