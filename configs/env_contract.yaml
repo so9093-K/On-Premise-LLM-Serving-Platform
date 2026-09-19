@@ -58,7 +58,7 @@ runtime_override_example_keys:
       - TIMEOUT_SECONDS
       - MAX_CONCURRENCY
       - QUEUE_TIMEOUT_SECONDS
-  risk_prompt:
+  prompt_injection_detector:
     env_prefix: PROMPT_INJECTION_DETECTOR
     suffixes:
       - BASE_URL
