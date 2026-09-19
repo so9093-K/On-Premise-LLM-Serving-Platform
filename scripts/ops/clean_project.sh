@@ -109,6 +109,17 @@ remove_runtime_validation_reports() {
   fi
 }
 
+remove_qualification_candidates() {
+  local report_dir="$ROOT/reports/qualification"
+  [[ -d "$report_dir" ]] || return 0
+  if [[ "$DRY_RUN" == "1" ]]; then
+    find "$report_dir" -maxdepth 1 -type f -name '*.json' -print |
+      sed 's/^/would remove: /'
+  else
+    find "$report_dir" -maxdepth 1 -type f -name '*.json' -delete
+  fi
+}
+
 for path in \
   "$ROOT/dist" "$ROOT/build" "$ROOT/outputs" "$ROOT/run" \
   "$ROOT/.pytest_cache" "$ROOT/.mypy_cache" "$ROOT/.ruff_cache" \
@@ -118,7 +129,9 @@ done
 remove_glob_find
 remove_os_metadata
 remove_runtime_validation_reports
+remove_qualification_candidates
 remove_empty_dir "$ROOT/reports/runtime"
+remove_empty_dir "$ROOT/reports/qualification"
 remove_empty_dir "$ROOT/reports"
 
 if [[ "$INCLUDE_LOGS" == "1" ]]; then

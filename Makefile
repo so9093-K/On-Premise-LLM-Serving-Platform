@@ -13,7 +13,7 @@ AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help help-all setup build rebuild prepare up status down down-all check app-check init-env-local init-env-compose sync-env static-compose-config metal-doctor metal-command metal-start metal-supervisor-install metal-supervisor-uninstall validate test build-image build-vllm-unified-image lock package compose-up compose-config ready-local ready-full smoke runtime-validate perf-smoke perf-sweep perf-run perf-gate perf-promote perf-report auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare compose-down compose-restart compose-logs logs compose-diagnostics clean reset reset-version render-runtime-assets fetch-docs-assets console-build console-check
+.PHONY: help help-all setup build rebuild prepare up status down down-all check app-check init-env-local init-env-compose sync-env static-compose-config metal-doctor metal-command metal-start metal-supervisor-install metal-supervisor-uninstall validate test build-image build-vllm-unified-image lock package compose-up compose-config ready-local ready-full smoke runtime-validate qualification-candidate perf-smoke perf-sweep perf-run perf-gate perf-promote perf-report auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare compose-down compose-restart compose-logs logs compose-diagnostics clean reset reset-version render-runtime-assets fetch-docs-assets console-build console-check
 .PHONY: setup-dev doctor-dev
 
 PUBLIC_TARGETS := setup build prepare up status down
@@ -156,6 +156,10 @@ smoke: ## smoke test 실행
 
 runtime-validate: ## 실제 서비스·GPU 검증
 	$(PYTHON) scripts/validation/runtime_validation.py
+
+qualification-candidate: ## REPORT=<runtime JSON> 현재 runtime에서 reviewable qualification candidate 생성
+	@if [[ -z "$(REPORT)" ]]; then echo "REPORT=reports/runtime/runtime_validation_....json 을 지정하세요" >&2; exit 2; fi
+	$(PYTHON) scripts/qualification/produce_candidate.py --runtime-report "$(REPORT)" $(if $(GATEWAY_BASE),--gateway-base "$(GATEWAY_BASE)",)
 
 perf-smoke: ## 성능 계측 경로 확인 (요청 몇 건, SLO 판정 없음)
 	$(PYTHON) scripts/benchmark/cli.py --workload $(or $(PROFILE),interactive) --mode smoke \

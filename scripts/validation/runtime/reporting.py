@@ -16,6 +16,7 @@ def write_reports(
     session_started: str,
     mode: str,
     results: list[CheckResult],
+    qualification_context: dict[str, Any] | None = None,
 ) -> tuple[Path, Path]:
     out_dir = root / output_dir
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -37,6 +38,7 @@ def write_reports(
         "started_at": session_started,
         "finished_at": datetime.now(timezone.utc).isoformat(),
         "mode": mode,
+        "qualification_context": qualification_context,
         "summary": {"passed": passed, "failed": failed, "skipped": skipped, "degraded_features": degraded_features},
         "results": [item.__dict__ for item in results],
     }
