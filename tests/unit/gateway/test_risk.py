@@ -83,7 +83,7 @@ def test_gateway_forwards_risk_assessments_to_internal_risk_signal_service():
 
 def test_gateway_risk_aggregate_returns_503_when_prompt_runtime_stopped():
     clients = FakeGatewayClients()
-    asyncio.run(clients.runtime_state.set("risk_prompt", RuntimeState.stopped))
+    asyncio.run(clients.runtime_state.set("prompt_injection_detector", RuntimeState.stopped))
     client = TestClient(create_gateway_app(settings(), clients))
 
     response = client.post(
@@ -95,7 +95,7 @@ def test_gateway_risk_aggregate_returns_503_when_prompt_runtime_stopped():
     assert response.status_code == 503
     body = response.json()
     assert body["error"]["code"] == "MODEL_UNAVAILABLE"
-    assert "risk_prompt runtime is stopped" in body["error"]["message"]
+    assert "prompt_injection_detector runtime is stopped" in body["error"]["message"]
     assert clients.risk_signal_service.last_path is None
 
 
