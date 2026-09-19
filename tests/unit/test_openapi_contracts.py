@@ -11,13 +11,13 @@ from jsonschema import Draft202012Validator
 import pytest
 
 from ai_model_serving.apps.gateway import create_gateway_app
-from ai_model_serving.apps.risk_adapter import create_risk_adapter_app
+from ai_model_serving.apps.risk_signal_service import create_risk_signal_service_app
 from ai_model_serving.api_examples import GATEWAY_CHAT_REQUEST_EXAMPLES, GATEWAY_RESPONSES_REQUEST_EXAMPLES
 from ai_model_serving.api_code_samples import GATEWAY_CHAT_CODE_SAMPLES, GATEWAY_RESPONSES_CODE_SAMPLES
 from ai_model_serving.openapi_contracts import install_contract_openapi, load_contract_schema
 
 from tests.unit.gateway.helpers import FakeGatewayClients, settings as gateway_settings
-from tests.support.risk_adapter import FakeRiskClients, settings as risk_settings
+from tests.support.risk_signal_service import FakeRiskClients, settings as risk_settings
 
 
 def test_error_catalog_loading_fails_explicitly_when_required_catalog_is_missing(tmp_path, monkeypatch):
@@ -107,12 +107,12 @@ def test_gateway_openapi_security_matches_effective_public_auth():
     assert "401" not in open_doc["paths"]["/v1/models"]["get"]["responses"]
 
 
-def test_risk_adapter_openapi_security_matches_effective_internal_auth():
+def test_risk_signal_service_openapi_security_matches_effective_internal_auth():
     from dataclasses import replace
     from ai_model_serving.settings import SecuritySettings
 
     cfg = risk_settings()
-    secured_doc = create_risk_adapter_app(cfg, FakeRiskClients()).openapi()
+    secured_doc = create_risk_signal_service_app(cfg, FakeRiskClients()).openapi()
     assert secured_doc["paths"]["/v1/risk/assessments"]["post"].get("security") == [{"bearerAuth": []}]
 
     open_cfg = replace(
@@ -125,14 +125,14 @@ def test_risk_adapter_openapi_security_matches_effective_internal_auth():
             auth_mode="local_open",
         ),
     )
-    open_doc = create_risk_adapter_app(open_cfg, FakeRiskClients()).openapi()
+    open_doc = create_risk_signal_service_app(open_cfg, FakeRiskClients()).openapi()
     assert "security" not in open_doc["paths"]["/v1/risk/assessments"]["post"]
     assert "401" not in open_doc["paths"]["/v1/risk/assessments"]["post"]["responses"]
 
 
 def test_generated_openapi_uses_common_error_schema_for_server_failures():
     gateway_doc = create_gateway_app(gateway_settings(), FakeGatewayClients()).openapi()
-    risk_doc = create_risk_adapter_app(risk_settings(), FakeRiskClients()).openapi()
+    risk_doc = create_risk_signal_service_app(risk_settings(), FakeRiskClients()).openapi()
     for doc, paths in [
         (gateway_doc, ["/v1/chat/completions", "/v1/embeddings", "/v1/risk/assessments"]),
         (risk_doc, ["/v1/risk/detectors/prompt/assessments", "/v1/risk/assessments"]),
