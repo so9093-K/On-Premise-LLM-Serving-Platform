@@ -31,7 +31,7 @@ def test_gateway_readiness_reflects_risk_signal_service_body_status():
         get_response={
             "status": "not_ready",
             "service": "risk-signal-service",
-            "dependencies": [{"name": "risk_prompt_vllm", "status": "not_ready"}],
+            "dependencies": [{"name": "prompt_injection_detector_runtime", "status": "not_ready"}],
         },
         endpoint=RuntimeEndpoint("risk-signal-service", "http://risk", "risk-signal-service", 1),
     )
@@ -47,7 +47,7 @@ def test_gateway_readiness_reflects_risk_signal_service_body_status():
     assert {item["name"]: item["status"] for item in body["dependencies"]}["risk-signal-service"] == "not_ready"
     risk_dependency = next(item for item in body["dependencies"] if item["name"] == "risk-signal-service")
     assert risk_dependency["endpoint"] == "http://risk/ready"
-    assert "risk_prompt_vllm" in risk_dependency["message"]
+    assert "prompt_injection_detector_runtime" in risk_dependency["message"]
 
 
 def test_gateway_readiness_503_when_embedding_ko_vllm_down():
