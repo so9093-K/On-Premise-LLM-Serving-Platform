@@ -22,6 +22,8 @@
 
 ### Changed
 
+- Prompt Injection Detector의 내부 runtime/config key를 `risk_prompt`에서 `prompt_injection_detector`로 수렴했다. 기존 persistent runtime desired-state의 `risk_prompt` 상태는 canonical key로 원자적으로 이관해 운영자의 active/stopped 의도를 보존한다. public model alias `risk-prompt`와 Compose service `risk-prompt-vllm`은 이번 단계에서 유지한다.
+
 - Prompt Injection Detector의 operator 환경변수 namespace를 `PROMPT_INJECTION_DETECTOR_*`로 수렴했다. 기존 `RISK_PROMPT_*`와 `RISK_PROMPT_VLLM_*` 값은 `make sync-env` migration 입력으로만 유지하며 runtime은 canonical key만 읽는다. public model alias `risk-prompt`, Compose service `risk-prompt-vllm`, 내부 runtime key `risk_prompt`는 이번 단계에서 바꾸지 않는다.
 
 - 원격 full deploy의 runtime image preflight가 persistent `.env` 복사본을 먼저 `make sync-env`로 canonicalize한 뒤 image plan을 계산하도록 바꿨다. 실제 `.env`는 image pull 성공 전까지 수정하지 않고, backup/rollback 경계가 준비된 뒤에는 runtime image promotion보다 먼저 `sync-env`를 적용해 legacy/canonical 충돌 없이 수렴한다. ([ADR-0028](docs/adr/0028-unified-vllm-runtime-image-authority.md))
