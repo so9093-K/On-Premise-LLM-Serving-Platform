@@ -45,7 +45,7 @@ class TestGatewayRiskForwarding:
     def test_gateway_preserves_risk_usage_and_writes_it_to_request_log(self):
         usage = {"prompt_tokens": 139, "completion_tokens": 1, "total_tokens": 140}
         clients = FakeGatewayClients()
-        clients.risk_adapter.post_response["usage"] = usage
+        clients.risk_signal_service.post_response["usage"] = usage
         stream = io.StringIO()
         logger = logging.getLogger("ai_model_serving.gateway")
         handler = logging.StreamHandler(stream)
@@ -70,7 +70,7 @@ class TestGatewayRiskForwarding:
 
     def test_gateway_rejects_malformed_risk_usage(self):
         clients = FakeGatewayClients()
-        clients.risk_adapter.post_response["usage"] = {
+        clients.risk_signal_service.post_response["usage"] = {
             "prompt_tokens": -1,
             "completion_tokens": True,
             "total_tokens": "one",
@@ -86,9 +86,9 @@ class TestGatewayRiskForwarding:
         assert response.status_code == 502
         assert response.json()["error"]["code"] == "UPSTREAM_RESPONSE_INVALID"
 
-    def test_gateway_forwards_pii_assessments_to_risk_adapter(self):
+    def test_gateway_forwards_pii_assessments_to_risk_signal_service(self):
         clients = FakeGatewayClients()
-        clients.risk_adapter = FakeRuntimeClient(_make_data_exposure_response("D1", "KR_RRN"))
+        clients.risk_signal_service = FakeRuntimeClient(_make_data_exposure_response("D1", "KR_RRN"))
         client = TestClient(create_gateway_app(settings(), clients))
         response = client.post(
             "/v1/risk/detectors/pii/assessments",
@@ -96,15 +96,15 @@ class TestGatewayRiskForwarding:
             json={"prompt": "주민번호: 901201-1234567"},
         )
         assert response.status_code == 200
-        assert clients.risk_adapter.last_path == "/v1/risk/detectors/pii/assessments"
+        assert clients.risk_signal_service.last_path == "/v1/risk/detectors/pii/assessments"
         body = response.json()
         assert body["risk_detected"] is True
         d1_cats = [c for c in body["categories"] if c.get("code") == "D1"]
         assert d1_cats
 
-    def test_gateway_forwards_secret_assessments_to_risk_adapter(self):
+    def test_gateway_forwards_secret_assessments_to_risk_signal_service(self):
         clients = FakeGatewayClients()
-        clients.risk_adapter = FakeRuntimeClient(_make_data_exposure_response("D4", "OPENAI_API_KEY", "secret-scanner"))
+        clients.risk_signal_service = FakeRuntimeClient(_make_data_exposure_response("D4", "OPENAI_API_KEY", "secret-scanner"))
         client = TestClient(create_gateway_app(settings(), clients))
         response = client.post(
             "/v1/risk/detectors/secret/assessments",
@@ -112,7 +112,7 @@ class TestGatewayRiskForwarding:
             json={"prompt": "sk-proj-xxxxxxxxxxxxxxxxxxxx"},
         )
         assert response.status_code == 200
-        assert clients.risk_adapter.last_path == "/v1/risk/detectors/secret/assessments"
+        assert clients.risk_signal_service.last_path == "/v1/risk/detectors/secret/assessments"
         body = response.json()
         assert body["risk_detected"] is True
         d4_cats = [c for c in body["categories"] if c.get("code") == "D4"]
