@@ -57,7 +57,7 @@
 | Main LLM | `main-llm-vllm` | `0.76` | 20K context + O3 runtime target, seq 1 기준; boot/latency/quality/soak 통과 전 production 확정 아님 |
 | Embedding | `embedding-vllm` | `0.04` | pooling runtime |
 | Dense retrieval-ko | `embedding-ko-vllm` | `0.06` | pooling / score runtime; 포트 9406 |
-| Prompt Risk | `risk-prompt-vllm` | `0.065` | 단일 토큰 signal classifier |
+| Prompt Risk | `prompt-injection-detector-runtime` | `0.065` | 단일 토큰 signal classifier |
 | 합계 (3모델 구성, Dense retrieval-ko 제외) | enabled vLLM total | `0.825` | 48GB 기준 약 39.6GiB 예약 |
 | 합계 (4모델 구성) | enabled vLLM total | `0.925` | 48GB 기준 약 44.4GiB 예약 |
 | reserve | system/runtime headroom | 3.5GiB hard minimum | 다운로드, warmup, allocator fragmentation, monitoring overhead 포함 |
