@@ -19,21 +19,30 @@ RISK_SIGNAL_SERVICE_PORT="${RISK_SIGNAL_SERVICE_PORT:-$(service_default_host_por
 STARTUP_WAIT_SECONDS="${STARTUP_WAIT_SECONDS:-90}"
 
 start_service() {
-  local name="$1" app="$2" host="$3" port="$4"
-  local pid_file="run/${name}.pid" log_file="logs/${name}.log"
+  local name="$1"
+  local app="$2"
+  local host="$3"
+  local port="$4"
+  local pid_file="run/${name}.pid"
+  local log_file="logs/${name}.log"
+
   if [[ -f "$pid_file" ]] && kill -0 "$(cat "$pid_file")" >/dev/null 2>&1; then
     echo "[up] ${name} already running with pid $(cat "$pid_file")"
     return
   fi
+
   echo "[up] starting ${name} on ${host}:${port}"
   PYTHONPATH=src nohup "$PYTHON_BIN" -m uvicorn "$app" --host "$host" --port "$port" >"$log_file" 2>&1 &
   echo $! > "$pid_file"
 }
 
 wait_for_health() {
-  local name="$1" url="$2"
-  local pid_file="run/${name}.pid" log_file="logs/${name}.log"
+  local name="$1"
+  local url="$2"
+  local pid_file="run/${name}.pid"
+  local log_file="logs/${name}.log"
   local deadline=$((SECONDS + STARTUP_WAIT_SECONDS))
+
   while (( SECONDS <= deadline )); do
     if [[ -f "$pid_file" ]] && ! kill -0 "$(cat "$pid_file")" >/dev/null 2>&1; then
       echo "[up] ${name} exited before becoming healthy. Last log lines:" >&2
@@ -46,6 +55,7 @@ wait_for_health() {
     fi
     sleep 1
   done
+
   echo "[up] ${name} did not report /health within ${STARTUP_WAIT_SECONDS}s. Last log lines:" >&2
   tail -n 40 "$log_file" >&2 || true
   echo "[up] 다음을 확인하세요: 포트 충돌, .env의 GATEWAY_PORT/RISK_SIGNAL_SERVICE_PORT, venv 의존성, PYTHON_BIN, 그리고 logs/${name}.log" >&2
@@ -55,6 +65,7 @@ wait_for_health() {
 
 start_service gateway ai_model_serving.apps.gateway_asgi:app "$GATEWAY_HOST" "$GATEWAY_PORT"
 wait_for_health gateway "http://${GATEWAY_HOST}:${GATEWAY_PORT}"
+
 start_service risk_adapter ai_model_serving.apps.risk_adapter_asgi:app "$RISK_SIGNAL_SERVICE_HOST" "$RISK_SIGNAL_SERVICE_PORT"
 wait_for_health risk_adapter "http://${RISK_SIGNAL_SERVICE_HOST}:${RISK_SIGNAL_SERVICE_PORT}"
 
