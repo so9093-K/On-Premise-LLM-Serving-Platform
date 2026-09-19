@@ -35,7 +35,7 @@ def _reference_dependency_endpoints() -> dict[str, str]:
     return {
         "main_llm_vllm": dependency_endpoint(str(models["main_llm"]["endpoint"]), "models"),
         "embedding_vllm": dependency_endpoint(str(models["embedding"]["endpoint"]), "models"),
-        "risk_prompt_vllm": dependency_endpoint(str(models["risk_prompt"]["endpoint"]), "models"),
+        "risk_prompt_vllm": dependency_endpoint(str(models["prompt_injection_detector"]["endpoint"]), "models"),
         "risk_signal_service": dependency_endpoint(str(document["risk_signal_service"]["endpoint"]), "/ready"),
     }
 
@@ -640,7 +640,7 @@ RUNTIME_LIST_RESPONSE_EXAMPLE: dict[str, Any] = {
             "criticality": "retrieval_support_path",
         },
         {
-            "service_key": "risk_prompt",
+            "service_key": "prompt_injection_detector",
             "container": "risk-prompt-vllm",
             "state": "active",
             "container_status": "running",
@@ -672,7 +672,7 @@ RUNTIME_LIST_MIXED_STATE_EXAMPLE: dict[str, Any] = {
             "criticality": "retrieval_support_path",
         },
         {
-            "service_key": "risk_prompt",
+            "service_key": "prompt_injection_detector",
             "container": "risk-prompt-vllm",
             "state": "active",
             "container_status": "running",
@@ -700,7 +700,7 @@ RUNTIME_TRANSITION_TO_STOPPED_EXAMPLE: dict[str, Any] = {
 }
 
 RUNTIME_TRANSITION_TO_STOPPED_WITH_PREREQ_EXAMPLE: dict[str, Any] = {
-    "service_key": "risk_prompt",
+    "service_key": "prompt_injection_detector",
     "state": "stopped",
     "containers_stopped": ["risk-prompt-vllm"],
 }
@@ -712,7 +712,7 @@ RUNTIME_TRANSITION_TO_ACTIVE_EXAMPLE: dict[str, Any] = {
 }
 
 RUNTIME_TRANSITION_TO_ACTIVE_WITH_PREREQ_EXAMPLE: dict[str, Any] = {
-    "service_key": "risk_prompt",
+    "service_key": "prompt_injection_detector",
     "state": "active",
     "containers_started": ["embedding-vllm", "risk-prompt-vllm"],
 }
