@@ -21,7 +21,7 @@ services:
   embedding-ko-vllm:
     ports:
       - ${EMBEDDING_KO_VLLM_BIND_ADDR:-0.0.0.0}:${EMBEDDING_KO_VLLM_PORT:-9406}:9406
-  risk-prompt-vllm:
+  prompt-injection-detector-runtime:
     ports:
       - ${PROMPT_INJECTION_DETECTOR_RUNTIME_BIND_ADDR:-0.0.0.0}:${PROMPT_INJECTION_DETECTOR_RUNTIME_PORT:-9403}:9403
   risk-signal-service:
