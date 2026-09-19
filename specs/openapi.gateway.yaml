@@ -126,7 +126,7 @@ paths:
                 - name: risk-signal-service
                   status: not_ready
                   endpoint: http://risk-signal-service:9405/ready
-                  message: 'waiting for Risk Signal Service dependencies: risk_prompt_vllm'
+                  message: 'waiting for Risk Signal Service dependencies: prompt_injection_detector_runtime'
       security:
       - adminBearerAuth: []
       x-response-contract-schema: readiness_response.schema.json
@@ -3601,7 +3601,7 @@ paths:
                       vram_fraction: 0.06
                       criticality: retrieval_support_path
                     - service_key: prompt_injection_detector
-                      container: risk-prompt-vllm
+                      container: prompt-injection-detector-runtime
                       state: active
                       container_status: running
                       vram_fraction: 0.065
@@ -3629,7 +3629,7 @@ paths:
                       vram_fraction: 0.04
                       criticality: retrieval_support_path
                     - service_key: prompt_injection_detector
-                      container: risk-prompt-vllm
+                      container: prompt-injection-detector-runtime
                       state: active
                       container_status: running
                       vram_fraction: 0.065
@@ -4063,7 +4063,7 @@ paths:
                     service_key: prompt_injection_detector
                     state: stopped
                     containers_stopped:
-                    - risk-prompt-vllm
+                    - prompt-injection-detector-runtime
                 to_active:
                   summary: 보조 시작 (서비스 복구)
                   value:
@@ -4078,7 +4078,7 @@ paths:
                     state: active
                     containers_started:
                     - embedding-vllm
-                    - risk-prompt-vllm
+                    - prompt-injection-detector-runtime
                 noop:
                   summary: 이미 목표 상태 (no-op)
                   value:
@@ -4103,7 +4103,7 @@ paths:
                     service_key: main
                     state: active
                     evicted:
-                    - risk-prompt-vllm
+                    - prompt-injection-detector-runtime
                     - embedding-ko-vllm
         '404':
           content:
@@ -4159,7 +4159,7 @@ paths:
                         ceiling: 0.93
                         plan:
                           stop:
-                          - risk-prompt-vllm
+                          - prompt-injection-detector-runtime
                           - embedding-ko-vllm
               schema:
                 allOf:

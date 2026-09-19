@@ -170,6 +170,38 @@ def validate_contract_structure(contract: dict[str, Any]) -> list[str]:
                 violations=violations,
             )
 
+    value_migrations = contract.get("value_migrations")
+    if value_migrations is not None:
+        if not isinstance(value_migrations, dict):
+            violations.append("env_contract.yaml: value_migrations must be a mapping")
+        else:
+            for key, replacements in value_migrations.items():
+                if not isinstance(key, str) or not key:
+                    violations.append(
+                        "env_contract.yaml: value_migrations keys must be non-empty strings"
+                    )
+                    continue
+                if not isinstance(replacements, dict) or not replacements:
+                    violations.append(
+                        f"env_contract.yaml: value_migrations.{key} must be a non-empty mapping"
+                    )
+                    continue
+                for old_value, new_value in replacements.items():
+                    if (
+                        not isinstance(old_value, str)
+                        or not old_value
+                        or not isinstance(new_value, str)
+                        or not new_value
+                    ):
+                        violations.append(
+                            f"env_contract.yaml: value_migrations.{key} entries must map "
+                            "non-empty strings to non-empty strings"
+                        )
+                    elif old_value == new_value:
+                        violations.append(
+                            f"env_contract.yaml: value_migrations.{key} cannot map a value to itself"
+                        )
+
     renamed = contract.get("renamed_keys")
     if renamed is not None:
         if not isinstance(renamed, dict):
@@ -356,6 +388,11 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
         renamed_keys = {}
     elif not isinstance(renamed_keys, dict):
         renamed_keys = {}
+    value_migrations = contract.get("value_migrations")
+    if value_migrations is None:
+        value_migrations = {}
+    elif not isinstance(value_migrations, dict):
+        value_migrations = {}
     violations.extend(validate_service_env_projections(root, contract))
     violations.extend(validate_auth_example_profiles(root, contract))
     violations.extend(validate_access_example_profiles(root, contract))
@@ -439,11 +476,15 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
                 )
 
     all_example_keys: set[str] = set()
+    example_values_by_key: dict[str, set[str]] = {}
     for filename in env_examples:
         file_path = root / filename
         if not file_path.exists():
             continue
-        all_example_keys.update(parse_env_file(file_path).values)
+        parsed_values = parse_env_file(file_path).values
+        all_example_keys.update(parsed_values)
+        for key, value in parsed_values.items():
+            example_values_by_key.setdefault(key, set()).add(value)
     for old_key, new_key in renamed_keys.items():
         if not isinstance(old_key, str) or not isinstance(new_key, str):
             continue
@@ -452,6 +493,29 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
                 f"env_contract.yaml: renamed key replacement {new_key!r} for {old_key!r} "
                 "is not projected by any env example"
             )
+
+    for key, replacements in value_migrations.items():
+        if not isinstance(key, str) or not isinstance(replacements, dict):
+            continue
+        projected_values = example_values_by_key.get(key, set())
+        if key not in all_example_keys:
+            violations.append(
+                f"env_contract.yaml: value migration key {key!r} is not projected by any env example"
+            )
+            continue
+        for old_value, new_value in replacements.items():
+            if not isinstance(old_value, str) or not isinstance(new_value, str):
+                continue
+            if new_value not in projected_values:
+                violations.append(
+                    f"env_contract.yaml: value migration replacement {new_value!r} for {key!r} "
+                    "is not projected by any env example"
+                )
+            if old_value in projected_values:
+                violations.append(
+                    f"env_contract.yaml: legacy migrated value {old_value!r} for {key!r} "
+                    "must not remain in env examples"
+                )
 
     if strict:
         # exposure profile마다 필요한 env key 묶음이 빠지지 않았는지 확인한다.

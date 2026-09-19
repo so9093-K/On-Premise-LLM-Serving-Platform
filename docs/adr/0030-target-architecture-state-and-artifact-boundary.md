@@ -49,7 +49,7 @@ ADR-0029는 사용자-facing terminology와 기존 식별자를 분리해 즉시
 | `MAIN_LLM_MODEL` | `MAIN_MODEL_ALIAS` | 실제 의미는 checkpoint가 아니라 Public Model Alias |
 | `admin-sidecar` / `admin_sidecar` | Runtime Controller 계열 식별자 | Python client/settings와 application module canonical 전환 후 Compose service ID를 별도 migration |
 | `risk_adapter` / `risk-adapter` | Risk Signal Service 계열 식별자 | 공개 `/v1/risk/*` path는 변경 대상이 아님 |
-| `risk_prompt` / `risk-prompt` | Prompt Injection Detector 계열 식별자 | runtime/config key는 `prompt_injection_detector`로 수렴하며 persisted desired-state의 `risk_prompt` key는 값 손실 없이 migration한다. 공개 risk detector API와 model alias `risk-prompt`, Compose service `risk-prompt-vllm`은 이 단계와 분리 |
+| `risk_prompt` / `risk-prompt` | Prompt Injection Detector 계열 식별자 | runtime/config key는 `prompt_injection_detector`로 수렴하며 persisted desired-state의 `risk_prompt` key는 값 손실 없이 migration한다. 공개 risk detector API와 model alias `risk-prompt`는 유지하고 service-registry/Compose identity는 별도 단계에서 `prompt_injection_detector_runtime` / `prompt-injection-detector-runtime`로 수렴 |
 
 기존 식별자는 migration 전까지 compatibility identifier다. 단순 검색/치환으로 제거하지 않는다.
 

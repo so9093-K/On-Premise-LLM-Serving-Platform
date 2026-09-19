@@ -240,8 +240,43 @@ def _renamed_env_keys() -> dict[str, str]:
     return {str(old): str(new) for old, new in raw.items()}
 
 
+def _env_value_migrations() -> dict[str, dict[str, str]]:
+    """Canonical key -> known-old value -> canonical replacement."""
+    raw = _env_contract().get("value_migrations") or {}
+    if not isinstance(raw, dict):
+        raise ValueError("env_contract.yaml value_migrations must be a mapping")
+    migrations: dict[str, dict[str, str]] = {}
+    for key, replacements in raw.items():
+        if not isinstance(key, str) or not key:
+            raise ValueError("env_contract.yaml value_migrations keys must be non-empty strings")
+        if not isinstance(replacements, dict):
+            raise ValueError(
+                f"env_contract.yaml value_migrations[{key}] must be a mapping"
+            )
+        parsed: dict[str, str] = {}
+        for old_value, new_value in replacements.items():
+            if (
+                not isinstance(old_value, str)
+                or not old_value
+                or not isinstance(new_value, str)
+                or not new_value
+            ):
+                raise ValueError(
+                    f"env_contract.yaml value_migrations[{key}] values must map "
+                    "non-empty strings to non-empty strings"
+                )
+            if old_value == new_value:
+                raise ValueError(
+                    f"env_contract.yaml value_migrations[{key}] cannot map a value to itself"
+                )
+            parsed[old_value] = new_value
+        migrations[key] = parsed
+    return migrations
+
+
 REMOVED_ENV_KEYS = _removed_env_keys()
 RENAMED_ENV_KEYS = _renamed_env_keys()
+ENV_VALUE_MIGRATIONS = _env_value_migrations()
 
 
 def migrate_renamed_env_values(values: dict[str, str]) -> tuple[dict[str, str], list[tuple[str, str]]]:
@@ -264,6 +299,24 @@ def migrate_renamed_env_values(values: dict[str, str]) -> tuple[dict[str, str], 
     return migrated, moves
 
 
+def migrate_repository_default_values(
+    values: dict[str, str],
+) -> tuple[dict[str, str], list[tuple[str, str, str]]]:
+    """Rewrite only exact known-old repository defaults; preserve operator overrides."""
+    migrated = dict(values)
+    changes: list[tuple[str, str, str]] = []
+    for key, replacements in ENV_VALUE_MIGRATIONS.items():
+        current = migrated.get(key)
+        if current is None:
+            continue
+        replacement = replacements.get(current)
+        if replacement is None:
+            continue
+        migrated[key] = replacement
+        changes.append((key, current, replacement))
+    return migrated, changes
+
+
 def preserve_existing_values(out_path: Path, *, force: bool) -> dict[str, str]:
     """Preserve operator edits when regenerating .env.
 
@@ -276,6 +329,7 @@ def preserve_existing_values(out_path: Path, *, force: bool) -> dict[str, str]:
         return {}
     _, existing = parse_env_template(out_path)
     existing, _ = migrate_renamed_env_values(existing)
+    existing, _ = migrate_repository_default_values(existing)
     preserved = {
         key: value
         for key, value in existing.items()
@@ -368,6 +422,7 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
     env_lines, existing = parse_env_template(env_path)
     original_existing = dict(existing)
     existing, renamed = migrate_renamed_env_values(existing)
+    existing, value_migrations = migrate_repository_default_values(existing)
     profile = existing.get("BUILD_PROFILE", "compose")
     if profile not in ("local", "compose"):
         profile = "compose"
@@ -400,7 +455,7 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
         if key in template_values and existing.get(key) != template_values[key]
     ]
 
-    if not added and not removed and not retired_renamed and not refreshed:
+    if not added and not removed and not retired_renamed and not refreshed and not value_migrations:
         print(f"변경 없음: .env가 최신 상태입니다. (profile={profile})")
         return 0
 
@@ -413,6 +468,14 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
         )
     if retired_renamed and not renamed:
         print(f"제거될 legacy key: {', '.join(sorted(retired_renamed))}")
+    if value_migrations:
+        print(
+            "기본값이 변경될 키: "
+            + ", ".join(
+                f"{key}: {old} -> {new}"
+                for key, old, new in value_migrations
+            )
+        )
     if removed:
         print(f"제거될 키 ({len(removed)}개): {', '.join(sorted(removed))}")
     if refreshed:

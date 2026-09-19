@@ -32,7 +32,7 @@ Client / Application
         │                                └─ Prompt Detector
         │                                      │
         │                                      ▼
-        │                               risk-prompt-vllm :9403
+        │                               prompt-injection-detector-runtime :9403
         │
         └────────────────────────► Runtime Controller :8080
                                            │
@@ -423,7 +423,7 @@ Shared GPU
   ├─ main-llm-vllm       :9401
   ├─ embedding-vllm      :9402
   ├─ embedding-ko-vllm   :9406
-  └─ risk-prompt-vllm    :9403
+  └─ prompt-injection-detector-runtime    :9403
 ```
 
 ### Common Runtime Boundary
@@ -445,7 +445,7 @@ vLLM은 **모델 실행 엔진**이며 외부 API policy나 container lifecycle 
 | **Main Model** | `main-llm-vllm` | `9401` | generation | `local-main` | Chat / Multimodal |
 | **Embedding** | `embedding-vllm` | `9402` | pooling | `local-embed` | 범용 Embedding |
 | **Korean Embedding** | `embedding-ko-vllm` | `9406` | pooling | `local-embed-ko` | Korean Retrieval |
-| **Prompt Injection Detector** | `risk-prompt-vllm` | `9403` | generation | `risk-prompt` | Prompt detector inference |
+| **Prompt Injection Detector** | `prompt-injection-detector-runtime` | `9403` | generation | `risk-prompt` | Prompt detector inference |
 
 ### Main Model Runtime
 
@@ -497,13 +497,13 @@ Retrieval에서 query와 document에 적용되는 prompt policy는 embedding pro
 
 ### Prompt Injection Detector Runtime
 
-`risk-prompt-vllm`은 Prompt detector model을 실행한다.
+`prompt-injection-detector-runtime`은 Prompt detector model을 실행한다.
 
 ```text
 Risk Signal Service
   │
   ▼
-risk-prompt-vllm :9403
+prompt-injection-detector-runtime :9403
   │
   ▼
 Detector Model
@@ -560,10 +560,10 @@ Risk Signal Service :9405
       └─ Prompt Detector
               │
               ▼
-       risk-prompt-vllm :9403
+       prompt-injection-detector-runtime :9403
 ```
 
-`risk-signal-service`와 `risk-prompt-vllm`은 서로 다른 서비스다.
+`risk-signal-service`와 `prompt-injection-detector-runtime`은 서로 다른 서비스다.
 
 ### Risk Signal Service Purpose
 
@@ -573,7 +573,7 @@ Risk Signal Service는 detector별 구현 차이를 숨기고 결과를 공통 *
 |---|---|---|
 | **PII** | Risk Signal Service process 내부 local detector | 개인정보 노출 signal 탐지 |
 | **Secret** | Risk Signal Service process 내부 local detector | credential / secret 노출 signal 탐지 |
-| **Prompt** | `risk-prompt-vllm` 호출 | Prompt attack signal 탐지 |
+| **Prompt** | `prompt-injection-detector-runtime` 호출 | Prompt attack signal 탐지 |
 
 ### Local Detector와 Prompt Runtime
 
@@ -586,10 +586,10 @@ Risk Signal Service
   │
   ├─ PII     → Local Detector
   ├─ Secret  → Local Detector
-  └─ Prompt  → risk-prompt-vllm
+  └─ Prompt  → prompt-injection-detector-runtime
 ```
 
-따라서 `risk-prompt-vllm` 장애가 PII와 Secret detector의 직접적인 실행 장애를 의미하지는 않는다.
+따라서 `prompt-injection-detector-runtime` 장애가 PII와 Secret detector의 직접적인 실행 장애를 의미하지는 않는다.
 
 ### Risk Signal Contract
 

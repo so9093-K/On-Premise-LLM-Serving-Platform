@@ -35,7 +35,7 @@ def _reference_dependency_endpoints() -> dict[str, str]:
     return {
         "main_llm_vllm": dependency_endpoint(str(models["main_llm"]["endpoint"]), "models"),
         "embedding_vllm": dependency_endpoint(str(models["embedding"]["endpoint"]), "models"),
-        "risk_prompt_vllm": dependency_endpoint(str(models["prompt_injection_detector"]["endpoint"]), "models"),
+        "prompt_injection_detector_runtime": dependency_endpoint(str(models["prompt_injection_detector"]["endpoint"]), "models"),
         "risk_signal_service": dependency_endpoint(str(document["risk_signal_service"]["endpoint"]), "/ready"),
     }
 
@@ -124,7 +124,7 @@ def loading_response_example() -> dict[str, Any]:
                 "name": "risk-signal-service",
                 "status": "not_ready",
                 "endpoint": endpoints["risk_signal_service"],
-                "message": "waiting for Risk Signal Service dependencies: risk_prompt_vllm",
+                "message": "waiting for Risk Signal Service dependencies: prompt_injection_detector_runtime",
             },
         ],
     }
@@ -591,9 +591,9 @@ def risk_ready_response_example() -> dict[str, Any]:
         "optional_not_ready_dependencies": [],
         "dependencies": [
             {
-                "name": "risk_prompt_vllm",
+                "name": "prompt_injection_detector_runtime",
                 "status": "ready",
-                "endpoint": _reference_dependency_endpoints()["risk_prompt_vllm"],
+                "endpoint": _reference_dependency_endpoints()["prompt_injection_detector_runtime"],
             },
         ],
     }
@@ -604,14 +604,14 @@ def risk_loading_response_example() -> dict[str, Any]:
         "status": "not_ready",
         "service": "risk-signal-service",
         "phase": "waiting_for_dependencies",
-        "not_ready_dependencies": ["risk_prompt_vllm"],
-        "required_not_ready_dependencies": ["risk_prompt_vllm"],
+        "not_ready_dependencies": ["prompt_injection_detector_runtime"],
+        "required_not_ready_dependencies": ["prompt_injection_detector_runtime"],
         "optional_not_ready_dependencies": [],
         "dependencies": [
             {
-                "name": "risk_prompt_vllm",
+                "name": "prompt_injection_detector_runtime",
                 "status": "not_ready",
-                "endpoint": _reference_dependency_endpoints()["risk_prompt_vllm"],
+                "endpoint": _reference_dependency_endpoints()["prompt_injection_detector_runtime"],
                 "message": "MODEL_UNAVAILABLE: Upstream unavailable: risk-prompt",
             },
         ],
@@ -641,7 +641,7 @@ RUNTIME_LIST_RESPONSE_EXAMPLE: dict[str, Any] = {
         },
         {
             "service_key": "prompt_injection_detector",
-            "container": "risk-prompt-vllm",
+            "container": "prompt-injection-detector-runtime",
             "state": "active",
             "container_status": "running",
             "vram_fraction": 0.065,
@@ -673,7 +673,7 @@ RUNTIME_LIST_MIXED_STATE_EXAMPLE: dict[str, Any] = {
         },
         {
             "service_key": "prompt_injection_detector",
-            "container": "risk-prompt-vllm",
+            "container": "prompt-injection-detector-runtime",
             "state": "active",
             "container_status": "running",
             "vram_fraction": 0.065,
@@ -702,7 +702,7 @@ RUNTIME_TRANSITION_TO_STOPPED_EXAMPLE: dict[str, Any] = {
 RUNTIME_TRANSITION_TO_STOPPED_WITH_PREREQ_EXAMPLE: dict[str, Any] = {
     "service_key": "prompt_injection_detector",
     "state": "stopped",
-    "containers_stopped": ["risk-prompt-vllm"],
+    "containers_stopped": ["prompt-injection-detector-runtime"],
 }
 
 RUNTIME_TRANSITION_TO_ACTIVE_EXAMPLE: dict[str, Any] = {
@@ -714,7 +714,7 @@ RUNTIME_TRANSITION_TO_ACTIVE_EXAMPLE: dict[str, Any] = {
 RUNTIME_TRANSITION_TO_ACTIVE_WITH_PREREQ_EXAMPLE: dict[str, Any] = {
     "service_key": "prompt_injection_detector",
     "state": "active",
-    "containers_started": ["embedding-vllm", "risk-prompt-vllm"],
+    "containers_started": ["embedding-vllm", "prompt-injection-detector-runtime"],
 }
 
 RUNTIME_TRANSITION_NOOP_EXAMPLE: dict[str, Any] = {
@@ -747,7 +747,7 @@ RUNTIME_BUDGET_EXCEEDED_EXAMPLE: dict[str, Any] = {
             "required": 0.85,
             "available": 0.765,
             "ceiling": 0.93,
-            "plan": {"stop": ["risk-prompt-vllm", "embedding-ko-vllm"]},
+            "plan": {"stop": ["prompt-injection-detector-runtime", "embedding-ko-vllm"]},
         },
     },
 }

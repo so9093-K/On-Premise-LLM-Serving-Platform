@@ -95,7 +95,7 @@ class BudgetRejectingSidecar:
                 "code": "GPU_BUDGET_EXCEEDED",
                 "message": "GPU budget does not allow this activation.",
                 "feasible": True,
-                "plan": {"stop": ["risk-prompt-vllm"]},
+                "plan": {"stop": ["prompt-injection-detector-runtime"]},
             },
         )
 
@@ -164,7 +164,7 @@ def test_runtime_budget_rejection_uses_standard_error_envelope():
     assert error["code"] == "GPU_BUDGET_EXCEEDED"
     assert error["details"] == {
         "feasible": True,
-        "plan": {"stop": ["risk-prompt-vllm"]},
+        "plan": {"stop": ["prompt-injection-detector-runtime"]},
     }
 
 

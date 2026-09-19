@@ -94,9 +94,9 @@ paths:
                 required_not_ready_dependencies: []
                 optional_not_ready_dependencies: []
                 dependencies:
-                - name: risk_prompt_vllm
+                - name: prompt_injection_detector_runtime
                   status: ready
-                  endpoint: http://risk-prompt-vllm:9403/v1/models
+                  endpoint: http://prompt-injection-detector-runtime:9403/v1/models
         '401':
           description: 'Admin Bearer token 필요
 
@@ -126,14 +126,14 @@ paths:
                 service: risk-signal-service
                 phase: waiting_for_dependencies
                 not_ready_dependencies:
-                - risk_prompt_vllm
+                - prompt_injection_detector_runtime
                 required_not_ready_dependencies:
-                - risk_prompt_vllm
+                - prompt_injection_detector_runtime
                 optional_not_ready_dependencies: []
                 dependencies:
-                - name: risk_prompt_vllm
+                - name: prompt_injection_detector_runtime
                   status: not_ready
-                  endpoint: http://risk-prompt-vllm:9403/v1/models
+                  endpoint: http://prompt-injection-detector-runtime:9403/v1/models
                   message: 'MODEL_UNAVAILABLE: Upstream unavailable: risk-prompt'
       security:
       - adminBearerAuth: []

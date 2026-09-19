@@ -197,7 +197,7 @@ full-stack의 base Compose 정의는 `ops/compose/full-stack.private-network.yam
 | `runtime-controller` | `8080` | Main Model runtime control |
 | `main-llm-vllm` | `9401` | Chat / Multimodal inference |
 | `embedding-vllm` | `9402` | 범용 embedding |
-| `risk-prompt-vllm` | `9403` | Prompt risk inference |
+| `prompt-injection-detector-runtime` | `9403` | Prompt risk inference |
 | `risk-signal-service` | `9405` | Risk signal 처리 |
 | `embedding-ko-vllm` | `9406` | Korean retrieval embedding |
 | `prometheus` | `9090` | Metrics backend |
@@ -221,7 +221,7 @@ vLLM Runtime Image
   ├─ main-llm-vllm
   ├─ embedding-vllm
   ├─ embedding-ko-vllm
-  └─ risk-prompt-vllm
+  └─ prompt-injection-detector-runtime
 ```
 
 각 model runtime은 독립 container와 port를 사용하며, GPU resource는 활성 runtime 사이에서 공유된다.
@@ -258,7 +258,7 @@ Compose Network
 ├─ main-llm-vllm
 ├─ embedding-vllm
 ├─ embedding-ko-vllm
-├─ risk-prompt-vllm
+├─ prompt-injection-detector-runtime
 ├─ risk-signal-service
 ├─ runtime-controller
 ├─ prometheus
@@ -348,7 +348,7 @@ embedding-vllm
 embedding-ko-vllm
       │ healthy
       ▼
-risk-prompt-vllm
+prompt-injection-detector-runtime
 ```
 
 vLLM runtime은 초기화 과정에서 GPU memory를 확인하고 runtime memory를 구성한다. 순차 기동은 여러 runtime이 동일 GPU를 사용할 때 초기화 경쟁을 줄이는 역할을 한다.

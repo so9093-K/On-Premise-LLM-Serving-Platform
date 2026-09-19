@@ -27,7 +27,7 @@ def test_default_profile_defers_all_non_main_runtimes():
     payload = json.loads(result.stdout)
     assert payload == {
         "keys": ["embedding", "embedding_ko", "prompt_injection_detector"],
-        "services": ["embedding-vllm", "embedding-ko-vllm", "risk-prompt-vllm"],
+        "services": ["embedding-vllm", "embedding-ko-vllm", "prompt-injection-detector-runtime"],
         "profile": "main_only",
     }
 

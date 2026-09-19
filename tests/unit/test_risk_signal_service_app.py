@@ -30,9 +30,9 @@ def test_risk_signal_service_readiness_not_ready_returns_http_503():
     body = response.json()
     assert body["status"] == "not_ready"
     assert body["phase"] == "waiting_for_dependencies"
-    assert body["not_ready_dependencies"] == ["risk_prompt_vllm"]
-    assert {item["name"]: item["status"] for item in body["dependencies"]}["risk_prompt_vllm"] == "not_ready"
-    prompt_dependency = next(item for item in body["dependencies"] if item["name"] == "risk_prompt_vllm")
+    assert body["not_ready_dependencies"] == ["prompt_injection_detector_runtime"]
+    assert {item["name"]: item["status"] for item in body["dependencies"]}["prompt_injection_detector_runtime"] == "not_ready"
+    prompt_dependency = next(item for item in body["dependencies"] if item["name"] == "prompt_injection_detector_runtime")
     assert prompt_dependency["endpoint"] == "http://risk/v1/models"
     assert "MODEL_UNAVAILABLE" in prompt_dependency["message"]
 

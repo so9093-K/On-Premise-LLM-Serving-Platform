@@ -51,7 +51,7 @@ def test_scoped_container_id_rejects_cross_project_result() -> None:
 def test_scoped_container_id_rejects_cross_service_result() -> None:
     with pytest.raises(RuntimeError, match="escaped Compose service scope"):
         scoped_container_id(
-            _row(service="risk-prompt-vllm"),
+            _row(service="prompt-injection-detector-runtime"),
             project="platform",
             service="embedding-vllm",
         )

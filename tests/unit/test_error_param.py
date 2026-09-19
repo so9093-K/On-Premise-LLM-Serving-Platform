@@ -187,10 +187,10 @@ def test_error_payload_preserves_operation_details_without_message_parsing():
     payload = error_payload(
         "GPU_BUDGET_EXCEEDED",
         "GPU budget does not allow this activation.",
-        details={"plan": {"stop": ["risk-prompt-vllm"]}},
+        details={"plan": {"stop": ["prompt-injection-detector-runtime"]}},
     )["error"]
 
-    assert payload["details"] == {"plan": {"stop": ["risk-prompt-vllm"]}}
+    assert payload["details"] == {"plan": {"stop": ["prompt-injection-detector-runtime"]}}
 
 
 def test_service_error_diagnostics_uses_original_cause_when_available():

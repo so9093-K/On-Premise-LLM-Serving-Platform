@@ -42,7 +42,7 @@ Gateway는 외부 클라이언트가 사용하는 모델 API와 운영 API를 �
 | **Responses** | `POST /v1/responses` | `local-main` |
 | **Embedding** | `POST /v1/embeddings` | `local-embed`, `local-embed-ko` |
 | **Retrieval** | `POST /v1/retrieval/score`<br>`POST /v1/retrieval/rerank` | Embedding 기반 dense cosine score |
-| **Prompt Guard** | `POST /v1/risk/*` | `risk-signal-service` / `risk-prompt-vllm` |
+| **Prompt Guard** | `POST /v1/risk/*` | `risk-signal-service` / `prompt-injection-detector-runtime` |
 | **Runtime Control** | `/admin/runtimes*`<br>`/admin/main-model*` | Runtime 상태와 Main Model 전환 |
 | **Operations** | `/health`<br>`/ready`<br>`/metrics` | Liveness, readiness, metrics |
 
@@ -444,7 +444,7 @@ risk-signal-service :9405
   ├─ Detector Input Guard
   │
   ▼
-risk-prompt-vllm :9403
+prompt-injection-detector-runtime :9403
   │
   │ POST /v1/chat/completions
   │ max_tokens=1
@@ -476,7 +476,7 @@ Prompt detector는 Kanana Safeguard-Prompt가 생성한 단일 label을 A1 Promp
 
 | API | Backend |
 |---|---|
-| `/v1/risk/detectors/prompt/assessments` | Kanana `risk-prompt-vllm` |
+| `/v1/risk/detectors/prompt/assessments` | Kanana `prompt-injection-detector-runtime` |
 | `/v1/risk/detectors/pii/assessments` | Risk Signal Service in-process PII detector |
 | `/v1/risk/detectors/secret/assessments` | Risk Signal Service in-process Secret detector |
 | `/v1/risk/assessments` | PII → Secret → Prompt 순차 처리 |
@@ -496,7 +496,7 @@ Gateway 뒤의 서비스는 Compose DNS와 container port로 연결된다.
 | Gateway → Embedding vLLM | `http://embedding-vllm:9402/v1` | 범용 Embedding |
 | Gateway → Embedding-KO vLLM | `http://embedding-ko-vllm:9406/v1` | Korean Embedding / Retrieval |
 | Gateway → Risk Signal Service | `http://risk-signal-service:9405` | Prompt Guard / Risk 요청 |
-| Risk Signal Service → Prompt vLLM | `http://risk-prompt-vllm:9403/v1` | Prompt attack detector |
+| Risk Signal Service → Prompt vLLM | `http://prompt-injection-detector-runtime:9403/v1` | Prompt attack detector |
 | Gateway → Runtime Controller | `http://runtime-controller:8080` | Runtime / Main Model control |
 
 ### `private_network`
@@ -516,7 +516,7 @@ Compose Network
   ├─ main-llm-vllm :9401
   ├─ embedding-vllm :9402
   ├─ embedding-ko-vllm :9406
-  ├─ risk-prompt-vllm :9403
+  ├─ prompt-injection-detector-runtime :9403
   └─ Prometheus / Loki / Alloy / DCGM / cAdvisor
 ```
 

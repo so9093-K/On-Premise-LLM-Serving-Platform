@@ -77,8 +77,8 @@ services:
       - vllm_runtime
 
   # prompt injection 탐지용 단일 token 분류 runtime.
-  risk_prompt_vllm:
-    compose_service: risk-prompt-vllm
+  prompt_injection_detector_runtime:
+    compose_service: prompt-injection-detector-runtime
     container_port: 9403
     host_env_port: PROMPT_INJECTION_DETECTOR_RUNTIME_PORT
     default_host_port: 9403

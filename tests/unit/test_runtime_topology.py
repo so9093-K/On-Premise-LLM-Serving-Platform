@@ -21,7 +21,7 @@ def test_runtime_topology_uses_explicit_lifecycle_bindings() -> None:
     assert topology.service_by_key == {
         "embedding": "embedding-vllm",
         "embedding_ko": "embedding-ko-vllm",
-        "prompt_injection_detector": "risk-prompt-vllm",
+        "prompt_injection_detector": "prompt-injection-detector-runtime",
     }
     assert "main_llm" not in topology.controllable_keys
     assert topology.bindings_by_key["embedding"].service_id == "embedding_vllm"
@@ -32,7 +32,7 @@ def test_runtime_topology_uses_explicit_lifecycle_bindings() -> None:
     ) == frozenset({"main_llm", "embedding", "embedding_ko", "prompt_injection_detector"})
     assert topology.start_prerequisites_by_service == {
         "embedding-ko-vllm": ["embedding-vllm"],
-        "risk-prompt-vllm": ["embedding-vllm", "embedding-ko-vllm"],
+        "prompt-injection-detector-runtime": ["embedding-vllm", "embedding-ko-vllm"],
     }
 
 
@@ -49,7 +49,7 @@ def test_runtime_topology_loads_without_compose_file(tmp_path) -> None:
 def test_runtime_topology_rejects_wrong_service_reference(tmp_path) -> None:
     path = _copy_runtime_configs(tmp_path)
     document = yaml.safe_load(path.read_text(encoding="utf-8"))
-    document["runtimes"]["embedding"]["service_id"] = "risk_prompt_vllm"
+    document["runtimes"]["embedding"]["service_id"] = "prompt_injection_detector_runtime"
     path.write_text(yaml.safe_dump(document), encoding="utf-8")
 
     with pytest.raises(ValueError, match="port does not match"):

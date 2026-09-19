@@ -39,10 +39,10 @@ scrape_configs:
       model: local-embed-ko
       runtime_service: embedding-ko-vllm
   - targets:
-    - risk-prompt-vllm:9403
+    - prompt-injection-detector-runtime:9403
     labels:
       model: risk-prompt
-      runtime_service: risk-prompt-vllm
+      runtime_service: prompt-injection-detector-runtime
 - job_name: dcgm-exporter
   metrics_path: /metrics
   static_configs:

@@ -47,6 +47,6 @@ groups:
       # cAdvisor bridges for per-vLLM container host resources. Compose generated
       # container names vary by project directory, so use the compose service label.
       - record: vllm_container_memory_usage_bytes
-        expr: max by (container_label_com_docker_compose_service) (container_memory_usage_bytes{container_label_com_docker_compose_service=~"main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm"})
+        expr: max by (container_label_com_docker_compose_service) (container_memory_usage_bytes{container_label_com_docker_compose_service=~"main-llm-vllm|embedding-vllm|embedding-ko-vllm|prompt-injection-detector-runtime"})
       - record: vllm_container_cpu_cores_used
-        expr: sum by (container_label_com_docker_compose_service) (rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service=~"main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm"}[1m]))
+        expr: sum by (container_label_com_docker_compose_service) (rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service=~"main-llm-vllm|embedding-vllm|embedding-ko-vllm|prompt-injection-detector-runtime"}[1m]))
