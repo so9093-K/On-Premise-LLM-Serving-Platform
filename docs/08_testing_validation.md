@@ -242,6 +242,7 @@ Contract Test는 여러 모듈이나 artifact가 공유하는 규칙을 검증�
 
 - 현재 verified Main Model profile과 `configs/qualification_evidence.yaml`의 model/revision/capability evidence 정합성
 - 새 `qualified_run`의 runtime image digest, engine version, GPU/driver fingerprint 완전성
+- `configs/qualification_checks.yaml`의 stable check ID와 capability별 required-check coverage; passed run의 required skip/fail 거부
 - 공식 OpenAI Python SDK의 실제 serializer/parser를 통한 `/v1/models`, Chat Completions, Responses, Embeddings 호환성
 - OpenAPI / JSON Schema 계약
 - 공개 error contract

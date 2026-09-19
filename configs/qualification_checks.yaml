@@ -1,0 +1,32 @@
+version: 1
+
+# Stable qualification check registry for Main Model qualified_run evidence.
+#
+# These IDs describe evidence semantics, not a particular test function name.
+# Runtime validation / qualification producers may evolve internally, but once
+# emitted into qualification evidence the IDs below remain stable.
+checks:
+  main_model.runtime.models:
+    description: Main Model runtime reports the expected served model from /models.
+  main_model.gateway.models:
+    description: Gateway /v1/models reports the active Main Model contract.
+  main_model.chat.text:
+    description: Text-only Chat Completions canary succeeds through the Gateway.
+  main_model.chat.image:
+    description: Image input canary succeeds through the active Main Model profile.
+  main_model.chat.audio:
+    description: Audio input canary succeeds through the active Main Model profile.
+  main_model.chat.video:
+    description: Video input canary succeeds through the active Main Model profile.
+
+capability_requirements:
+  text:
+    - main_model.runtime.models
+    - main_model.gateway.models
+    - main_model.chat.text
+  image:
+    - main_model.chat.image
+  audio:
+    - main_model.chat.audio
+  video:
+    - main_model.chat.video

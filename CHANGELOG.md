@@ -22,6 +22,8 @@
 
 ### Changed
 
+- Main Model Qualification에 stable check registry를 추가했다. `configs/qualification_checks.yaml`이 capability별 required check를 소유하고, 새 `qualified_run`은 `{id, status}` check 결과를 기록한다. passed evidence에서 required check가 누락되거나 `failed`/`skipped`이면 CI가 fail-closed한다. ([ADR-0032](docs/adr/0032-qualification-evidence-v1.md))
+
 - Prompt Injection Detector의 service-registry/Compose identity를 `prompt_injection_detector_runtime` / `prompt-injection-detector-runtime`로 수렴했다. 기존 `PROMPT_INJECTION_DETECTOR_BASE_URL=http://risk-prompt-vllm:9403/v1` 기본값은 `make sync-env`가 새 DNS로 정확히 이관하며, 다른 operator-owned URL은 보존한다. public model alias `risk-prompt`는 유지한다.
 
 - Prompt Injection Detector의 내부 runtime/config key를 `risk_prompt`에서 `prompt_injection_detector`로 수렴했다. 기존 persistent runtime desired-state의 `risk_prompt` 상태는 canonical key로 원자적으로 이관해 운영자의 active/stopped 의도를 보존한다. public model alias `risk-prompt`와 Compose service `risk-prompt-vllm`은 이번 단계에서 유지한다.
