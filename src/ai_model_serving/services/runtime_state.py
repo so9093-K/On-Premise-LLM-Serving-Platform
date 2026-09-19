@@ -38,6 +38,11 @@ def _default_controllable_keys() -> frozenset[str]:
     return load_runtime_topology(root).controllable_keys
 
 
+_RUNTIME_STATE_KEY_RENAMES = {
+    "risk_prompt": "prompt_injection_detector",
+}
+
+
 class RuntimeStateStore:
     """Gateway-side desired-state store for controllable vLLM runtimes.
 
@@ -79,8 +84,9 @@ class RuntimeStateStore:
         recovered_corrupt_state = False
         if self._path is not None:
             self._path.parent.mkdir(parents=True, exist_ok=True)
+            migration_required = False
             try:
-                records, self._applied_release_id = self._read_file()
+                records, self._applied_release_id, migration_required = self._read_file()
             except RuntimeStateStoreError as exc:
                 recovered_corrupt_state = True
                 self.recovery_error = str(exc)
@@ -110,6 +116,13 @@ class RuntimeStateStore:
                 records = {}
             self._records.update(records)
             had_persisted_state = bool(records)
+            if migration_required and not recovered_corrupt_state:
+                try:
+                    self._write_file()
+                except OSError as exc:
+                    raise RuntimeStateStoreError(
+                        "runtime desired state key migration could not be persisted"
+                    ) from exc
         # A corrupt desired-state file means operator intent is unknown. Applying a
         # deploy directive in the same startup could immediately turn a fail-closed
         # recovery state back to active, so recovery always wins for this boot.
@@ -207,9 +220,9 @@ class RuntimeStateStore:
             updated_at=updated_at,
         )
 
-    def _read_file(self) -> tuple[dict[str, RuntimeStateRecord], str]:
+    def _read_file(self) -> tuple[dict[str, RuntimeStateRecord], str, bool]:
         if self._path is None or not self._path.exists():
-            return {}, ""
+            return {}, "", False
         try:
             value = json.loads(self._path.read_text(encoding="utf-8"))
         except PermissionError as exc:
@@ -228,16 +241,31 @@ class RuntimeStateStore:
         if not isinstance(states, dict):
             raise RuntimeStateStoreError("runtime desired state states must be an object")
         parsed: dict[str, RuntimeStateRecord] = {}
+        migrated = False
         for key, raw in states.items():
-            if key not in self.controllable_keys:
-                continue
+            canonical_key = _RUNTIME_STATE_KEY_RENAMES.get(key, key)
+            if canonical_key not in self.controllable_keys:
+                if key not in self.controllable_keys:
+                    continue
+                canonical_key = key
             record = self._parse_record(raw)
             if record is None:
                 raise RuntimeStateStoreError(
                     f"runtime desired state contains an invalid record for {key}"
                 )
-            parsed[key] = record
-        return parsed, applied
+            existing = parsed.get(canonical_key)
+            if existing is not None:
+                if existing.state != record.state:
+                    raise RuntimeStateStoreError(
+                        "runtime desired state contains conflicting records for "
+                        f"{key} and {canonical_key}"
+                    )
+                if key == canonical_key:
+                    parsed[canonical_key] = record
+            else:
+                parsed[canonical_key] = record
+            migrated = migrated or canonical_key != key
+        return parsed, applied, migrated
 
     def _quarantine_corrupt_state(self) -> Path | None:
         if self._path is None or not self._path.exists():
