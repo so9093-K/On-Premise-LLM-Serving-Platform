@@ -33,9 +33,9 @@ services:
   risk_adapter:
     compose_service: risk-signal-service
     container_port: 9405
-    host_env_port: RISK_ADAPTER_PORT
+    host_env_port: RISK_SIGNAL_SERVICE_PORT
     default_host_port: 9405
-    host_env_bind: RISK_ADAPTER_BIND_ADDR
+    host_env_bind: RISK_SIGNAL_SERVICE_BIND_ADDR
     default_bind: "0.0.0.0"
     categories:
       - risk_adapter

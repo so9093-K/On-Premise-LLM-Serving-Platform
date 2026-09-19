@@ -13,9 +13,9 @@ mkdir -p run logs
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
 "$PYTHON_BIN" scripts/build/check_python.py --context start >/dev/null
 GATEWAY_HOST="${GATEWAY_HOST:-127.0.0.1}"
-RISK_ADAPTER_HOST="${RISK_ADAPTER_HOST:-127.0.0.1}"
+RISK_SIGNAL_SERVICE_HOST="${RISK_SIGNAL_SERVICE_HOST:-127.0.0.1}"
 GATEWAY_PORT="${GATEWAY_PORT:-$(service_default_host_port gateway)}"
-RISK_ADAPTER_PORT="${RISK_ADAPTER_PORT:-$(service_default_host_port risk_adapter)}"
+RISK_SIGNAL_SERVICE_PORT="${RISK_SIGNAL_SERVICE_PORT:-$(service_default_host_port risk_adapter)}"
 STARTUP_WAIT_SECONDS="${STARTUP_WAIT_SECONDS:-90}"
 
 start_service() {
@@ -58,7 +58,7 @@ wait_for_health() {
 
   echo "[up] ${name} did not report /health within ${STARTUP_WAIT_SECONDS}s. Last log lines:" >&2
   tail -n 40 "$log_file" >&2 || true
-  echo "[up] 다음을 확인하세요: 포트 충돌, .env의 GATEWAY_PORT/RISK_ADAPTER_PORT, venv 의존성, PYTHON_BIN, 그리고 logs/${name}.log" >&2
+  echo "[up] 다음을 확인하세요: 포트 충돌, .env의 GATEWAY_PORT/RISK_SIGNAL_SERVICE_PORT, venv 의존성, PYTHON_BIN, 그리고 logs/${name}.log" >&2
   echo "[up] 기존 프로세스가 남아 있으면 'make down' 후 다시 'make up'을 실행하세요." >&2
   return 1
 }
@@ -66,8 +66,8 @@ wait_for_health() {
 start_service gateway ai_model_serving.apps.gateway_asgi:app "$GATEWAY_HOST" "$GATEWAY_PORT"
 wait_for_health gateway "http://${GATEWAY_HOST}:${GATEWAY_PORT}"
 
-start_service risk_adapter ai_model_serving.apps.risk_adapter_asgi:app "$RISK_ADAPTER_HOST" "$RISK_ADAPTER_PORT"
-wait_for_health risk_adapter "http://${RISK_ADAPTER_HOST}:${RISK_ADAPTER_PORT}"
+start_service risk_adapter ai_model_serving.apps.risk_adapter_asgi:app "$RISK_SIGNAL_SERVICE_HOST" "$RISK_SIGNAL_SERVICE_PORT"
+wait_for_health risk_adapter "http://${RISK_SIGNAL_SERVICE_HOST}:${RISK_SIGNAL_SERVICE_PORT}"
 
 cat <<MSG
 [up] Gateway and Risk Signal Service processes started and passed /health.
