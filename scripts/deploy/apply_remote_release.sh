@@ -276,7 +276,7 @@ capture_deferred_runtime_state() {
 
 # deferred 런타임은 "컨테이너는 만들되 시작하지 않는다". `docker compose create`는
 # --no-deps를 지원하지 않아(unknown flag) 배포가 통째로 실패한다. `up --no-start`가
-# 같은 의미이면서 --no-deps를 받는다 -- 이게 없으면 risk-prompt-vllm의 depends_on을
+# 같은 의미이면서 --no-deps를 받는다 -- 이게 없으면 prompt-injection-detector-runtime의 depends_on을
 # 따라 embedding·main-llm까지 force-recreate되어 GPU 모델이 전부 다시 뜬다.
 enforce_deferred_runtime_state() {
   [[ ${#DEFERRED_RUNTIME_SERVICES[@]} -gt 0 ]] || return 0
