@@ -86,13 +86,22 @@ def validate_ports() -> None:
         raise SystemExit(f'gateway default_host_port must remain 9400, got {host_ports.get("gateway")}')
 
     model_serving = read_yaml('configs/model_serving.yaml')
+    runtime_topology = read_yaml('configs/runtime_topology.yaml').get('runtimes', {})
     checks = {}
     for key, cfg in model_serving['models'].items():
-        if cfg.get('enabled', True) is True:
-            checks[f'{key}_vllm'] = cfg['port']
-    for key, value in checks.items():
-        if host_ports.get(key) != value:
-            raise SystemExit(f'port mismatch: {key} default_host_port expected {value}, got {host_ports.get(key)}')
+        if cfg.get('enabled', True) is not True:
+            continue
+        binding = runtime_topology.get(key)
+        if not isinstance(binding, dict) or not isinstance(binding.get('service_id'), str):
+            raise SystemExit(f'runtime topology binding missing for enabled model {key}')
+        service_id = binding['service_id']
+        checks[service_id] = cfg['port']
+    for service_id, value in checks.items():
+        if host_ports.get(service_id) != value:
+            raise SystemExit(
+                f'port mismatch: {service_id} default_host_port expected {value}, '
+                f'got {host_ports.get(service_id)}'
+            )
 
     metal_port = int(read_yaml('configs/macos_mlx_runtime.yaml')['runtime']['port'])
     main_runtime_port = int(services['main_llm_vllm']['container_port'])
