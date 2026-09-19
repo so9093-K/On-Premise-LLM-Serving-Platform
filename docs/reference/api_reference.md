@@ -1358,7 +1358,7 @@ Ready:
       "endpoint": "http://embedding-vllm:9402/v1/models"
     },
     {
-      "name": "risk_adapter",
+      "name": "risk-signal-service",
       "status": "ready",
       "endpoint": "http://risk-signal-service:9405/ready"
     }
@@ -1373,12 +1373,12 @@ Dependency loading:
   "status": "not_ready",
   "service": "gateway",
   "phase": "waiting_for_dependencies",
-  "not_ready_dependencies": ["risk_adapter"],
-  "required_not_ready_dependencies": ["risk_adapter"],
+  "not_ready_dependencies": ["risk-signal-service"],
+  "required_not_ready_dependencies": ["risk-signal-service"],
   "optional_not_ready_dependencies": [],
   "dependencies": [
     {
-      "name": "risk_adapter",
+      "name": "risk-signal-service",
       "status": "not_ready",
       "endpoint": "http://risk-signal-service:9405/ready",
       "message": "waiting for Risk Signal Service dependencies: risk_prompt_vllm"
