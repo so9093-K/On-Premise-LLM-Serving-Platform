@@ -8,9 +8,9 @@ profiles:
     deferred_runtimes:
       - embedding
       - embedding_ko
-      - risk_prompt
+      - prompt_injection_detector
 
   # Retrieval은 즉시 제공하고 Prompt Injection Detector만 필요할 때 시작한다.
   retrieval_ready:
     deferred_runtimes:
-      - risk_prompt
+      - prompt_injection_detector
