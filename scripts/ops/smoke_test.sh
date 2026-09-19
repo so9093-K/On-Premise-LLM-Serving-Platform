@@ -37,7 +37,7 @@ while IFS=$'\t' read -r config_key config_value; do
     default_embedding_runtime) SMOKE_DEFAULT_EMBEDDING_RUNTIME="$config_value" ;;
     default_retrieval_model) SMOKE_RETRIEVAL_MODEL="$config_value" ;;
     retrieval_runtime) SMOKE_RETRIEVAL_RUNTIME="$config_value" ;;
-    risk_prompt_runtime) SMOKE_RISK_PROMPT_RUNTIME="$config_value" ;;
+    prompt_injection_detector_runtime) SMOKE_PROMPT_INJECTION_DETECTOR_RUNTIME="$config_value" ;;
     public_model_ids_json) SMOKE_PUBLIC_MODEL_IDS_JSON="$config_value" ;;
     *) echo "[smoke] unknown model configuration key: $config_key" >&2; exit 2 ;;
   esac
@@ -84,7 +84,7 @@ PY
 : "${SMOKE_DEFAULT_EMBEDDING_RUNTIME:?failed to load default embedding runtime from config}"
 : "${SMOKE_RETRIEVAL_MODEL:?failed to load retrieval model from config}"
 : "${SMOKE_RETRIEVAL_RUNTIME:?failed to load retrieval runtime from config}"
-: "${SMOKE_RISK_PROMPT_RUNTIME:?failed to load risk prompt runtime from config}"
+: "${SMOKE_PROMPT_INJECTION_DETECTOR_RUNTIME:?failed to load Prompt Injection Detector runtime from config}"
 : "${SMOKE_PUBLIC_MODEL_IDS_JSON:?failed to load public model IDs from config}"
 export SMOKE_PUBLIC_MODEL_IDS_JSON
 
@@ -258,8 +258,8 @@ assert_json ready
 get_json gateway-models "$GATEWAY_BASE_URL/v1/models"
 assert_json models
 
-if skip_runtime "$SMOKE_RISK_PROMPT_RUNTIME"; then
-  echo "[smoke] ${SMOKE_RISK_PROMPT_RUNTIME} runtime is deferred; skipping risk inference probes" >&2
+if skip_runtime "$SMOKE_PROMPT_INJECTION_DETECTOR_RUNTIME"; then
+  echo "[smoke] ${SMOKE_PROMPT_INJECTION_DETECTOR_RUNTIME} runtime is deferred; skipping risk inference probes" >&2
 else
   post_json_with_retry gateway-risk-aggregate "$GATEWAY_BASE_URL/v1/risk/assessments" \
     '{"prompt":"smoke test prompt"}'
@@ -268,7 +268,7 @@ fi
 
 # Private-network compose에서는 risk-signal-service 포트가 host에 노출되지 않는다.
 # 접근 가능할 때만 직접 프로브를 실행하고, 아닐 경우 gateway 경유 테스트로 검증한다.
-if skip_runtime "$SMOKE_RISK_PROMPT_RUNTIME"; then
+if skip_runtime "$SMOKE_PROMPT_INJECTION_DETECTOR_RUNTIME"; then
   :
 elif curl -sS --max-time 3 -o /dev/null "$RISK_SIGNAL_SERVICE_BASE_URL/health" 2>/dev/null; then
   get_json risk-health "$RISK_SIGNAL_SERVICE_BASE_URL/health"
