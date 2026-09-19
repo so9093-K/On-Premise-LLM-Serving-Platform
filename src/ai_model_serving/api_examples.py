@@ -121,7 +121,7 @@ def loading_response_example() -> dict[str, Any]:
                 "endpoint": endpoints["main_llm_vllm"],
             },
             {
-                "name": "risk_signal_service",
+                "name": "risk-signal-service",
                 "status": "not_ready",
                 "endpoint": endpoints["risk_signal_service"],
                 "message": "waiting for Risk Signal Service dependencies: risk_prompt_vllm",
