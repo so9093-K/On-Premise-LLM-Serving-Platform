@@ -13,7 +13,7 @@ AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help help-all setup build rebuild prepare up status down down-all check app-check init-env-local init-env-compose sync-env static-compose-config metal-doctor metal-command metal-start metal-supervisor-install metal-supervisor-uninstall validate test build-image build-vllm-unified-image lock package compose-up compose-config ready-local ready-full smoke runtime-validate qualification-candidate qualification-promote perf-smoke perf-sweep perf-run perf-gate perf-promote perf-report auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare compose-down compose-restart compose-logs logs compose-diagnostics clean reset reset-version render-runtime-assets fetch-docs-assets console-build console-check
+.PHONY: help help-all setup build rebuild prepare up status down down-all check app-check init-env-local init-env-compose sync-env static-compose-config metal-doctor metal-command metal-start metal-supervisor-install metal-supervisor-uninstall validate test build-image build-vllm-unified-image lock package compose-up compose-config ready-local ready-full smoke runtime-validate qualification-candidate qualification-promote qualification-status-promote perf-smoke perf-sweep perf-run perf-gate perf-promote perf-report auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare compose-down compose-restart compose-logs logs compose-diagnostics clean reset reset-version render-runtime-assets fetch-docs-assets console-build console-check
 .PHONY: setup-dev doctor-dev
 
 PUBLIC_TARGETS := setup build prepare up status down
@@ -164,6 +164,11 @@ qualification-candidate: ## REPORT=<runtime JSON> 현재 runtime에서 reviewabl
 qualification-promote: ## CANDIDATE=<json> evidence 승격 plan (적용: APPLY=1 CONFIRM=<plan-digest>)
 	@if [[ -z "$(CANDIDATE)" ]]; then echo "CANDIDATE=reports/qualification/<candidate>.json 을 지정하세요" >&2; exit 2; fi
 	$(PYTHON) scripts/qualification/promote_candidate.py "$(CANDIDATE)" \
+		$(if $(filter 1,$(APPLY)),--apply --confirm "$(CONFIRM)",)
+
+qualification-status-promote: ## PROFILE=<id> verified 승격 plan (적용: APPLY=1 CONFIRM=<plan-digest>)
+	@if [[ -z "$(PROFILE)" ]]; then echo "PROFILE=<main-model-profile-id>를 지정하세요" >&2; exit 2; fi
+	$(PYTHON) scripts/qualification/status_promotion.py --profile "$(PROFILE)" \
 		$(if $(filter 1,$(APPLY)),--apply --confirm "$(CONFIRM)",)
 
 perf-smoke: ## 성능 계측 경로 확인 (요청 몇 건, SLO 판정 없음)
