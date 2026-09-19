@@ -22,7 +22,7 @@ make check
 상태 변경 없이 현재 eligibility와 repository state를 묶은 plan을 생성한다.
 
 ```bash
-python scripts/qualification/status_promotion.py <profile-id>
+python scripts/qualification/status_promotion.py --profile <profile-id>
 ```
 
 출력의 eligible qualified-run IDs와 `plan_digest`를 검토한다. 이 단계는
@@ -33,7 +33,7 @@ python scripts/qualification/status_promotion.py <profile-id>
 같은 checkout에서 검토한 digest를 명시적으로 전달한다.
 
 ```bash
-python scripts/qualification/status_promotion.py <profile-id> \
+python scripts/qualification/status_promotion.py --profile <profile-id> \
   --apply \
   --confirm <plan_digest>
 ```
