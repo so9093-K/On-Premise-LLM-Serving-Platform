@@ -22,6 +22,8 @@
 
 ### Changed
 
+- Prompt Injection Detector의 service-registry/Compose identity를 `prompt_injection_detector_runtime` / `prompt-injection-detector-runtime`로 수렴했다. 기존 `PROMPT_INJECTION_DETECTOR_BASE_URL=http://risk-prompt-vllm:9403/v1` 기본값은 `make sync-env`가 새 DNS로 정확히 이관하며, 다른 operator-owned URL은 보존한다. public model alias `risk-prompt`는 유지한다.
+
 - Prompt Injection Detector의 내부 runtime/config key를 `risk_prompt`에서 `prompt_injection_detector`로 수렴했다. 기존 persistent runtime desired-state의 `risk_prompt` 상태는 canonical key로 원자적으로 이관해 운영자의 active/stopped 의도를 보존한다. public model alias `risk-prompt`와 Compose service `risk-prompt-vllm`은 이번 단계에서 유지한다.
 
 - Prompt Injection Detector의 operator 환경변수 namespace를 `PROMPT_INJECTION_DETECTOR_*`로 수렴했다. 기존 `RISK_PROMPT_*`와 `RISK_PROMPT_VLLM_*` 값은 `make sync-env` migration 입력으로만 유지하며 runtime은 canonical key만 읽는다. public model alias `risk-prompt`, Compose service `risk-prompt-vllm`, 내부 runtime key `risk_prompt`는 이번 단계에서 바꾸지 않는다.
