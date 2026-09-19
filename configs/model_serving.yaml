@@ -144,7 +144,7 @@ models:
     served_model_name: risk-prompt
     backend: vllm
     port: 9403
-    endpoint: http://risk-prompt-vllm:9403/v1
+    endpoint: http://prompt-injection-detector-runtime:9403/v1
     runner: generation
     quantization: bitsandbytes
     load_format: bitsandbytes
