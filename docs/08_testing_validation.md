@@ -481,6 +481,40 @@ Host Inventory가 도입되기 전 v1 producer는 GPU 선택을 추측하지 않
 정확히 하나일 때만 candidate를 만든다. 출력은 `reports/qualification/`의 임시 artifact이며
 `configs/qualification_evidence.yaml`이나 `evidence/qualification/runs/`를 자동 변경하지 않는다.
 
+이미 존재하는 durable promotion 명령은 direct mutation 대신 reviewed plan/apply로 사용한다.
+passed candidate만 승격할 수 있고, 입력은 deterministic record ID filename을 가진
+`reports/qualification/` 아래 파일이어야 한다. 첫 실행은 repository를 바꾸지 않고
+`record_id`, receipt/catalog 경로와 `plan_digest`를 출력한다.
+
+```bash
+make qualification-promote \
+  CANDIDATE=reports/qualification/<candidate>.json
+```
+
+candidate와 현재 qualification catalog state를 검토한 뒤, 같은 plan digest를 exact confirm해서
+적용한다.
+
+```bash
+make qualification-promote \
+  CANDIDATE=reports/qualification/<candidate>.json \
+  APPLY=1 \
+  CONFIRM=<plan_digest>
+```
+
+apply는 직전에 plan을 다시 계산한다. candidate 내용이나 qualification catalog가 review 뒤
+바뀌었으면 digest가 달라져 적용을 거부한다. staged 상태는 기존
+`validate_qualification_evidence_document()`를 그대로 통과해야 하며, receipt와 catalog record의
+일치 계약도 같은 validator가 확인한다.
+
+실제 파일 적용은 receipt를 먼저 원자 교체하고 catalog를 다음에 원자 교체한다. catalog 쓰기
+실패 시 이번 apply가 만든 receipt를 정리한다. process crash로 같은 receipt만 남은 경우에는
+candidate와 내용이 정확히 같은 orphan receipt만 다음 plan에서 복구 대상으로 인정한다.
+다른 내용의 기존 receipt나 같은 record ID의 catalog record는 덮어쓰지 않는다.
+
+promotion은 durable evidence만 만들며 `configs/main_model_profiles.yaml`의
+`qualification.status`는 자동 변경하지 않는다. profile qualification 상태 변경은 승격된
+passed evidence를 확인한 뒤 별도 reviewed diff로 수행한다.
+
 ---
 
 ## 8.6 변경 유형별 검증 선택
