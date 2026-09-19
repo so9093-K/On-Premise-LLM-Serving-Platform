@@ -11,10 +11,10 @@ load_local_env "$ENV_FILE"
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
 "$PYTHON_BIN" scripts/build/check_python.py --context ready-local >/dev/null
 
-# ready_local은 RISK_ADAPTER_BASE_URL과 무관하게 항상 localhost를 확인한다.
+# ready_local은 RISK_SIGNAL_SERVICE_BASE_URL과 무관하게 항상 localhost를 확인한다.
 # compose .env 파일에서는 이 값이 compose 내부 hostname(http://risk-signal-service:9405)일 수 있다.
 GATEWAY_BASE_URL="http://localhost:${GATEWAY_PORT:-$(service_default_host_port gateway)}"
-RISK_ADAPTER_BASE_URL="http://localhost:${RISK_SIGNAL_SERVICE_PORT:-$(service_default_host_port risk_signal_service)}"
+RISK_SIGNAL_SERVICE_BASE_URL="http://localhost:${RISK_SIGNAL_SERVICE_PORT:-$(service_default_host_port risk_signal_service)}"
 
 fail=0
 check_health() {
@@ -29,7 +29,7 @@ check_health() {
 }
 
 check_health gateway "$GATEWAY_BASE_URL"
-check_health risk_signal_service "$RISK_ADAPTER_BASE_URL"
+check_health risk_signal_service "$RISK_SIGNAL_SERVICE_BASE_URL"
 
 if [[ "$fail" != "0" ]]; then
   echo "ready-local failed: app-only services are not healthy. Run 'make up' or inspect 'make status'." >&2
