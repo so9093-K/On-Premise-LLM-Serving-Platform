@@ -66,7 +66,7 @@ wait_for_health() {
 start_service gateway ai_model_serving.apps.gateway_asgi:app "$GATEWAY_HOST" "$GATEWAY_PORT"
 wait_for_health gateway "http://${GATEWAY_HOST}:${GATEWAY_PORT}"
 
-start_service risk_adapter ai_model_serving.apps.risk_adapter_asgi:app "$RISK_SIGNAL_SERVICE_HOST" "$RISK_SIGNAL_SERVICE_PORT"
+start_service risk_adapter ai_model_serving.apps.risk_signal_service_asgi:app "$RISK_SIGNAL_SERVICE_HOST" "$RISK_SIGNAL_SERVICE_PORT"
 wait_for_health risk_adapter "http://${RISK_SIGNAL_SERVICE_HOST}:${RISK_SIGNAL_SERVICE_PORT}"
 
 cat <<MSG
