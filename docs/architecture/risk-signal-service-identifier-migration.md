@@ -32,7 +32,12 @@ Exit condition: repository runtime/template/config consumers use only the three 
 
 ### 2. Application URL/settings keys
 
-Migrate remaining persistent Risk Signal Service application settings as one producer/consumer set. Register every renamed persistent key before removing its legacy runtime read. Do not introduce permanent dual-read behavior.
+Migrate the remaining persistent Risk Signal Service application settings as one producer/consumer set:
+
+- `RISK_ADAPTER_BASE_URL` -> `RISK_SIGNAL_SERVICE_BASE_URL`
+- `RISK_ADAPTER_TIMEOUT_SECONDS` -> `RISK_SIGNAL_SERVICE_TIMEOUT_SECONDS`
+
+Register every renamed persistent key before removing its legacy runtime read. Do not introduce permanent dual-read behavior.
 
 Exit condition: application runtime and service-env projections consume canonical settings only; legacy persistent names remain only as `sync-env` migration inputs/tests/history.
 

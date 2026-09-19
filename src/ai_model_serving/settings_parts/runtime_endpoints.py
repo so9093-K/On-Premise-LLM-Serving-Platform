@@ -95,8 +95,8 @@ def validate_timeout_budget(
     if gateway_timeout_seconds < main_llm.timeout_seconds:
         raise RuntimeError("REQUEST_TIMEOUT_SECONDS must be greater than or equal to MAIN_MODEL_TIMEOUT_SECONDS.")
     if gateway_timeout_seconds < risk_adapter_timeout_seconds:
-        raise RuntimeError("REQUEST_TIMEOUT_SECONDS must be greater than or equal to RISK_ADAPTER_TIMEOUT_SECONDS.")
+        raise RuntimeError("REQUEST_TIMEOUT_SECONDS must be greater than or equal to RISK_SIGNAL_SERVICE_TIMEOUT_SECONDS.")
     if risk_adapter_execution == "sequential" and risk_detectors:
         aggregate_budget = sum(endpoint.queue_timeout_seconds + endpoint.timeout_seconds for endpoint in risk_detectors)
         if risk_adapter_timeout_seconds < aggregate_budget:
-            raise RuntimeError("RISK_ADAPTER_TIMEOUT_SECONDS must cover sequential risk detector queue and inference budgets.")
+            raise RuntimeError("RISK_SIGNAL_SERVICE_TIMEOUT_SECONDS must cover sequential risk detector queue and inference budgets.")
