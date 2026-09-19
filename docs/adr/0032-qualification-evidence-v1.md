@@ -27,7 +27,8 @@ evidence로 확장하기로 결정했다.
 ### 1. Qualification evidence는 별도 catalog가 소유한다
 
 Main Model qualification evidence의 repository Source of Truth는
-`configs/qualification_evidence.yaml`이다.
+`configs/qualification_evidence.yaml`이다. Stable qualification check ID와 capability별
+필수 check 집합은 `configs/qualification_checks.yaml`이 소유한다.
 
 profile config는 model identity, runtime policy와 `qualification.status`를 계속 소유하고,
 evidence catalog는 해당 상태를 뒷받침하는 검증 기록을 소유한다.
@@ -76,13 +77,19 @@ v1 도입 이후 새로 `verified` 승격의 근거로 만드는 record는 `qual
 - resolved runtime image digest (`sha256:<64 hex>`)
 - GPU
 - driver version
-- 검증한 named checks
+- stable ID와 개별 status(`passed / failed / skipped`)를 가진 named checks
 - deployment target
 - profile/model/revision
 - 검증한 capability 집합
 - result
 
 추가 관측값(context, concurrency, KV cache, latency 등)은 `observations`에 확장할 수 있다.
+
+`qualified_run.checks`의 ID는 `configs/qualification_checks.yaml`에 등록되어 있어야 한다.
+record의 `capabilities`마다 registry가 선언한 required check를 모두 포함해야 하며,
+`result: passed` record에서는 required check가 하나라도 `failed` 또는 `skipped`이면
+qualification 근거로 인정하지 않는다. 지원 capability를 선언했는데 해당 live check를 실행하지
+못한 경우도 성공으로 간주하지 않는다.
 
 ### 5. failed run도 evidence로 보존할 수 있다
 
@@ -99,6 +106,8 @@ repository validation은 다음을 강제한다.
 - `qualified_run`과 현재 verified 근거가 현재 deployment target을 참조하는지
 - source path가 repository에 존재하는지
 - `qualified_run`의 완전한 runtime/hardware fingerprint
+- qualification check registry의 stable ID와 capability별 required-check 참조 정합성
+- `qualified_run`의 required check 누락, unknown ID, passed run의 failed/skipped check
 - 현재 verified profile에 current tuple과 맞는 passed evidence가 존재하는지
 
 Main Model profile의 model ID, revision 또는 deployed capability를 변경하고 evidence를 갱신하지
