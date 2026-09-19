@@ -63,7 +63,7 @@ def validate_ports() -> None:
     services = read_yaml('configs/services.yaml')['services']
     host_ports = service_default_host_ports()
     owners_by_port: dict[int, str] = {}
-    application_categories = {'gateway', 'risk_adapter', 'model_runtime'}
+    application_categories = {'gateway', 'risk_signal_service', 'model_runtime'}
     observability_categories = {'operations_endpoint', 'visualization'}
     for service_id, service in services.items():
         host_port = int(service['default_host_port'])
@@ -106,7 +106,7 @@ def validate_ports() -> None:
 def validate_risk_detector_generation_budget() -> None:
     serving = read_yaml('configs/model_serving.yaml')['models']
     catalog = read_yaml('configs/model_catalog.yaml')['models']
-    detector_specs = read_yaml('configs/model_serving.yaml')['risk_adapter'].get('detectors', {})
+    detector_specs = read_yaml('configs/model_serving.yaml')['risk_signal_service'].get('detectors', {})
     for detector in detector_specs.values():
         if detector.get('type', 'vllm') == 'local':
             continue
@@ -119,8 +119,8 @@ def validate_risk_detector_generation_budget() -> None:
             raise SystemExit(
                 f'{logical_id} max_output_tokens must align at 1 across model catalog, runtime, and detector policy'
             )
-    risk_adapter_cfg = read_yaml('configs/model_serving.yaml')['risk_adapter']
-    input_policy = risk_adapter_cfg.get('input_policy', {})
+    risk_signal_service_cfg = read_yaml('configs/model_serving.yaml')['risk_signal_service']
+    input_policy = risk_signal_service_cfg.get('input_policy', {})
     max_prompt_chars = int(input_policy.get('max_prompt_chars', 0))
     enabled_detector_keys = [
         detector['service_key']
@@ -131,7 +131,7 @@ def validate_risk_detector_generation_budget() -> None:
     expected_upper_bound = detector_prompt_char_budget(min_detector_window)
     if max_prompt_chars <= 0 or max_prompt_chars > expected_upper_bound:
         raise SystemExit(
-            f'configs/model_serving.yaml risk_adapter.input_policy.max_prompt_chars={max_prompt_chars} '
+            f'configs/model_serving.yaml risk_signal_service.input_policy.max_prompt_chars={max_prompt_chars} '
             f'must be > 0 and <= {expected_upper_bound} '
             f'(risk_input.detector_prompt_char_budget(min detector max_model_len {min_detector_window}))'
         )
