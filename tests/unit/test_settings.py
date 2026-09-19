@@ -48,7 +48,7 @@ def isolate_settings_environment(monkeypatch):
         "EMBEDDING_MAX_CONCURRENCY",
         "EMBEDDING_QUEUE_TIMEOUT_SECONDS",
         "RISK_PROMPT_TIMEOUT_SECONDS",
-        "RISK_ADAPTER_TIMEOUT_SECONDS",
+        "RISK_SIGNAL_SERVICE_TIMEOUT_SECONDS",
     ]:
         monkeypatch.delenv(name, raising=False)
 
@@ -304,14 +304,14 @@ def test_load_settings_supports_independent_internal_service_auth_flag(monkeypat
 
 
 def test_load_settings_rejects_risk_adapter_timeout_below_sequential_budget(monkeypatch):
-    monkeypatch.setenv("RISK_ADAPTER_TIMEOUT_SECONDS", "6")
-    with pytest.raises(RuntimeError, match="RISK_ADAPTER_TIMEOUT_SECONDS"):
+    monkeypatch.setenv("RISK_SIGNAL_SERVICE_TIMEOUT_SECONDS", "6")
+    with pytest.raises(RuntimeError, match="RISK_SIGNAL_SERVICE_TIMEOUT_SECONDS"):
         load_settings()
 
 
 def test_load_settings_supports_per_model_timeout_overrides(monkeypatch):
     monkeypatch.setenv("RISK_PROMPT_TIMEOUT_SECONDS", "3")
-    monkeypatch.setenv("RISK_ADAPTER_TIMEOUT_SECONDS", "10")
+    monkeypatch.setenv("RISK_SIGNAL_SERVICE_TIMEOUT_SECONDS", "10")
     settings = load_settings()
     assert settings.runtime("risk_prompt").timeout_seconds == 3
 
