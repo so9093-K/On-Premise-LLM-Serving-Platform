@@ -1299,7 +1299,7 @@ Prompt runtime 중지:
 {
   "error": {
     "code": "MODEL_UNAVAILABLE",
-    "message": "risk_prompt runtime is stopped. Start it with PATCH /admin/runtimes/risk_prompt.",
+    "message": "prompt_injection_detector runtime is stopped. Start it with PATCH /admin/runtimes/prompt_injection_detector.",
     "retryable": true,
     "request_id": "req_..."
   }
@@ -1427,7 +1427,7 @@ curl "$GATEWAY_URL/admin/runtimes" \
       "criticality": "retrieval_support_path"
     },
     {
-      "service_key": "risk_prompt",
+      "service_key": "prompt_injection_detector",
       "container": "risk-prompt-vllm",
       "state": "active",
       "container_status": "running",
