@@ -226,7 +226,7 @@ services:
           devices:
           - capabilities:
             - gpu
-  risk-prompt-vllm:
+  prompt-injection-detector-runtime:
     image: ${VLLM_IMAGE:?Set VLLM_IMAGE to a tested vLLM OpenAI image tag}
     restart: unless-stopped
     command:
