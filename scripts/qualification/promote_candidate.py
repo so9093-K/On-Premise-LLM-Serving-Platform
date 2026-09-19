@@ -76,13 +76,33 @@ def _catalog_record(receipt: dict[str, Any], record_id: str) -> dict[str, Any]:
     return record
 
 
+def _stage_existing_sources(root: Path, staged_root: Path, catalog: dict[str, Any]) -> None:
+    records = catalog.get("records", {})
+    if not isinstance(records, dict):
+        return
+    for raw_record in records.values():
+        if not isinstance(raw_record, dict):
+            continue
+        source = raw_record.get("source")
+        if not isinstance(source, dict) or not isinstance(source.get("path"), str):
+            continue
+        relative = Path(source["path"])
+        source_path = root / relative
+        if not source_path.is_file():
+            continue
+        destination = staged_root / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source_path, destination)
+
+
 def _validate_staged(
     *, root: Path, receipt: dict[str, Any], record_id: str, catalog: dict[str, Any]
 ) -> None:
     with tempfile.TemporaryDirectory(prefix="qualification-promotion-") as raw_tmp:
         staged_root = Path(raw_tmp)
+        _stage_existing_sources(root, staged_root, catalog)
         receipt_dir = staged_root / "evidence/qualification/runs"
-        receipt_dir.mkdir(parents=True)
+        receipt_dir.mkdir(parents=True, exist_ok=True)
         (receipt_dir / f"{record_id}.json").write_text(
             json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
@@ -148,9 +168,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        record_id, destination = promote_candidate(
-            Path(args.candidate), root=Path(args.root)
-        )
+        record_id, destination = promote_candidate(Path(args.candidate), root=Path(args.root))
     except QualificationPromotionError as exc:
         print(f"qualification promotion refused: {exc}", file=sys.stderr)
         return 2
