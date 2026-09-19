@@ -17,7 +17,7 @@ if [[ -z "$GATEWAY_PROBE_HOST" || "$GATEWAY_PROBE_HOST" == "0.0.0.0" ]]; then
   GATEWAY_PROBE_HOST="localhost"
 fi
 GATEWAY_BASE_URL="http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT:-$(service_default_host_port gateway)}"
-RISK_ADAPTER_BASE_URL="http://localhost:${RISK_SIGNAL_SERVICE_PORT:-$(service_default_host_port risk_adapter)}"
+RISK_ADAPTER_BASE_URL="http://localhost:${RISK_SIGNAL_SERVICE_PORT:-$(service_default_host_port risk_signal_service)}"
 API_KEY="$(local_env_first_value "$ENV_FILE" API_KEY API_KEYS || true)"
 # smoke는 일반 Gateway 경로를 그대로 호출한다. 별도 30초 상수를 두면 정상적인
 # admission queue 대기보다 먼저 실패해 배포 rollback의 원인이 된다. 명시적
@@ -74,7 +74,7 @@ print("default_embedding_model\t" + default_embedding_model)
 print("default_embedding_runtime\t" + required(embedding_profiles[default_embedding_model]["service_key"], "default embedding service_key"))
 print("default_retrieval_model\t" + retrieval_model)
 print("retrieval_runtime\t" + required(embedding_profiles[retrieval_model]["service_key"], "retrieval embedding service_key"))
-print("risk_prompt_runtime\t" + required(serving["risk_adapter"]["detectors"]["prompt"]["service_key"], "risk_adapter.detectors.prompt.service_key"))
+print("risk_prompt_runtime\t" + required(serving["risk_signal_service"]["detectors"]["prompt"]["service_key"], "risk_signal_service.detectors.prompt.service_key"))
 print("public_model_ids_json\t" + json.dumps(public_ids, separators=(",", ":")))
 PY
 )
