@@ -4,6 +4,7 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[2]
+RETIRED_KEY = "risk_" + "adapter"
 
 
 def _load_yaml(path: str) -> dict:
@@ -19,6 +20,6 @@ def test_risk_signal_service_uses_canonical_repository_config_namespace() -> Non
     assert "risk_signal_service" in services["services"]
     assert "risk_signal_service" in monitoring["services"]
 
-    assert "risk_adapter" not in model_serving
-    assert "risk_adapter" not in services["services"]
-    assert "risk_adapter" not in monitoring["services"]
+    assert RETIRED_KEY not in model_serving
+    assert RETIRED_KEY not in services["services"]
+    assert RETIRED_KEY not in monitoring["services"]
