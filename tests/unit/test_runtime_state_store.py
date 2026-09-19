@@ -11,6 +11,7 @@ from ai_model_serving.services.runtime_state import (
     RuntimeState,
     RuntimeStateRecord,
     RuntimeStateStore,
+    RuntimeStateStoreError,
     _default_controllable_keys,
 )
 
