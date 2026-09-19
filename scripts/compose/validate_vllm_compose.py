@@ -334,7 +334,7 @@ def validate_alignment(
         util = as_float(args.get("gpu_memory_utilization"), "gpu_memory_utilization", service_name)
         total_gpu_util += util
 
-        if runtime.role in {"risk_prompt_detector", "risk_policy_detector"}:
+        if runtime.role in {"prompt_injection_detector", "risk_policy_detector"}:
             if args.get("quantization") != "bitsandbytes" or args.get("load_format") != "bitsandbytes":
                 errors.append(f"{service_name}: risk detector compose defaults must keep bitsandbytes quantization/load-format")
             if cfg.get("quantization") != "bitsandbytes" or cfg.get("load_format") != "bitsandbytes":
