@@ -15,7 +15,7 @@ from ai_model_serving.services.runtime_state import RuntimeState
 def test_gateway_risk_assessment_logs_prompt_and_response_when_flag_enabled():
     # 클라이언트가 실제로 때리는 건 risk-signal-service 자체가 아니라 gateway의 프록시
     # 라우트(gateway_risk.py)다 -- Grafana Request Log Explorer에 service=gateway로
-    # 찍히는 그 행. risk_adapter_risk.py(내부 전용 라우트)만 고치면 이 행엔
+    # 찍히는 그 행. risk_signal_service_risk.py(내부 전용 라우트)만 고치면 이 행엔
     # 여전히 반영이 안 되므로 별도로 검증한다.
     clients = FakeGatewayClients()
     cfg = dataclasses.replace(settings(), log_request_response_body=True)
@@ -67,7 +67,7 @@ def test_gateway_risk_assessment_omits_request_response_body_when_flag_disabled(
     assert "response_body" not in completed[-1]
 
 
-def test_gateway_forwards_risk_assessments_to_internal_risk_adapter():
+def test_gateway_forwards_risk_assessments_to_internal_risk_signal_service():
     clients = FakeGatewayClients()
     client = TestClient(create_gateway_app(settings(), clients))
     response = client.post(
@@ -76,9 +76,9 @@ def test_gateway_forwards_risk_assessments_to_internal_risk_adapter():
         json={"prompt": "hello"},
     )
     assert response.status_code == 200
-    assert clients.risk_adapter.last_path == "/v1/risk/assessments"
-    assert clients.risk_adapter.last_payload == {"prompt": "hello"}
-    assert clients.risk_adapter.last_headers == {"authorization": "Bearer internal-test-key"}
+    assert clients.risk_signal_service.last_path == "/v1/risk/assessments"
+    assert clients.risk_signal_service.last_payload == {"prompt": "hello"}
+    assert clients.risk_signal_service.last_headers == {"authorization": "Bearer internal-test-key"}
 
 
 def test_gateway_risk_aggregate_returns_503_when_prompt_runtime_stopped():
@@ -96,16 +96,16 @@ def test_gateway_risk_aggregate_returns_503_when_prompt_runtime_stopped():
     body = response.json()
     assert body["error"]["code"] == "MODEL_UNAVAILABLE"
     assert "risk_prompt runtime is stopped" in body["error"]["message"]
-    assert clients.risk_adapter.last_path is None
+    assert clients.risk_signal_service.last_path is None
 
 
-def test_gateway_preserves_detector_disabled_from_risk_adapter():
+def test_gateway_preserves_detector_disabled_from_risk_signal_service():
     clients = FakeGatewayClients()
 
     def disabled_response(_path, _payload, **_kwargs):
         raise ServiceError("DETECTOR_DISABLED", "Risk detector is not enabled: prompt")
 
-    clients.risk_adapter.post_response = disabled_response
+    clients.risk_signal_service.post_response = disabled_response
     client = TestClient(create_gateway_app(settings(), clients))
 
     response = client.post(
@@ -129,12 +129,12 @@ def test_gateway_validates_risk_payload_before_forwarding():
         json={"prompt": "hello", "action": "block"},
     )
     assert response.status_code == 422
-    assert clients.risk_adapter.last_path is None
+    assert clients.risk_signal_service.last_path is None
 
 
 def test_gateway_rejects_invalid_internal_risk_response_schema():
     clients = FakeGatewayClients()
-    clients.risk_adapter = FakeRuntimeClient({
+    clients.risk_signal_service = FakeRuntimeClient({
         "assessment_id": "risk_1",
         "status": "completed",
         "risk_detected": False,
