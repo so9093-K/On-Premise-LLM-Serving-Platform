@@ -47,7 +47,7 @@ models:
       capabilities: [embeddings, retrieval_rerank, retrieval_score]
 
   risk-prompt:
-    role: risk_prompt_detector
+    role: prompt_injection_detector
     upstream_model_id: kakaocorp/kanana-safeguard-prompt-2.1b
     input_modalities: [text]
     runtime:
