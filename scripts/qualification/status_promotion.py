@@ -9,12 +9,13 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.qualification.status_eligibility import eligible_qualified_run_ids  # noqa: E402
-from scripts.validation.governance.common import read_yaml  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -32,18 +33,17 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _read_yaml(path: Path) -> object:
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
 def build_plan(profile_id: str, *, root: Path = ROOT) -> StatusPromotionPlan:
     profiles_path = root / "configs/main_model_profiles.yaml"
     evidence_path = root / "configs/qualification_evidence.yaml"
-    profiles = read_yaml(profiles_path.relative_to(root)) if root == ROOT else __import__("yaml").safe_load(profiles_path.read_text(encoding="utf-8"))
-    evidence = read_yaml(evidence_path.relative_to(root)) if root == ROOT else __import__("yaml").safe_load(evidence_path.read_text(encoding="utf-8"))
-    if root == ROOT:
-        targets = read_yaml("configs/deployment_targets.yaml")
-        checks = read_yaml("configs/qualification_checks.yaml")
-    else:
-        import yaml
-        targets = yaml.safe_load((root / "configs/deployment_targets.yaml").read_text(encoding="utf-8"))
-        checks = yaml.safe_load((root / "configs/qualification_checks.yaml").read_text(encoding="utf-8"))
+    profiles = _read_yaml(profiles_path)
+    evidence = _read_yaml(evidence_path)
+    targets = _read_yaml(root / "configs/deployment_targets.yaml")
+    checks = _read_yaml(root / "configs/qualification_checks.yaml")
 
     record_ids = eligible_qualified_run_ids(profile_id, evidence, profiles, targets, checks)
     payload: dict[str, Any] = {
