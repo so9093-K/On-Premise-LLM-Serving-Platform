@@ -164,7 +164,9 @@ v1 이전 검증은 `legacy_backfill`로 구조화한다. 당시 기록되지 �
 image digest를 추측해 채우지 않고 source와 실제 남아 있는 관측값만 보존한다.
 
 v1 이후 새 qualification 승격 근거는 `qualified_run`을 사용하며 검증 시각, runtime engine/version,
-resolved image digest, GPU와 driver version, 실제로 수행한 named checks를 함께 기록한다. 세부 정책은
+resolved image digest, GPU와 driver version, 실제로 수행한 named checks를 함께 기록한다.
+Stable check ID와 capability별 필수 check는 `configs/qualification_checks.yaml`이 소유하며,
+passed run에서 필수 check의 skip/fail은 허용하지 않는다. 세부 정책은
 [ADR-0032](./adr/0032-qualification-evidence-v1.md)를 따른다.
 
 ### Profile Lock
