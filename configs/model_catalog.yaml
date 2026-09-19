@@ -57,5 +57,5 @@ models:
       max_output_tokens: 1
     gateway_listing:
       enabled: true
-      backend: risk_adapter
+      backend: risk_signal_service
       capabilities: [risk.prompt_attack_signal]
