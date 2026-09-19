@@ -32,6 +32,7 @@ ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
 # configs/vllm_unified_build.yaml이 값을 소유하며 공통 build script가 항상 전달한다.
+ARG VLLM_VERSION
 ARG TRANSFORMERS_VERSION
 ARG HUGGINGFACE_HUB_VERSION
 
@@ -44,6 +45,7 @@ LABEL ai_model_serving.patch.transformers_llama_head_dim_guard="true"
 LABEL ai_model_serving.patch.reason="Kanana explicit head_dim compatibility"
 LABEL ai_model_serving.patch.remove_when="Upstream Transformers/vLLM honors explicit Llama head_dim without image patch"
 LABEL ai_model_serving.patch.metadata_path="/usr/local/share/ai-model-serving/patches/transformers_llama_head_dim_guard.json"
+LABEL ai_model_serving.vllm_version="${VLLM_VERSION}"
 LABEL ai_model_serving.transformers_version="${TRANSFORMERS_VERSION}"
 LABEL ai_model_serving.huggingface_hub_version="${HUGGINGFACE_HUB_VERSION}"
 
@@ -73,27 +75,37 @@ RUN python3 /tmp/apply_gemma4_streaming_reasoning_patch.py \
 # ── Kanana risk-prompt: verified base dependency pair ───────────────────────
 # The pinned base image is the dependency source of truth.  Do not pip-install
 # over its curated vLLM stack: verify the exact known-good pair instead.
-RUN python3 - "$TRANSFORMERS_VERSION" "$HUGGINGFACE_HUB_VERSION" <<'PY'
+RUN python3 - "$VLLM_VERSION" "$TRANSFORMERS_VERSION" "$HUGGINGFACE_HUB_VERSION" <<'PY'
 from __future__ import annotations
 
 import sys
 
 import huggingface_hub
 import transformers
+import vllm
 
-expected_transformers, expected_hub = sys.argv[1:]
-actual = transformers.__version__
+expected_vllm, expected_transformers, expected_hub = sys.argv[1:]
+actual_vllm = vllm.__version__
+actual_transformers = transformers.__version__
 actual_hub = huggingface_hub.__version__
 
-if actual != expected_transformers or actual_hub != expected_hub:
+if (
+    actual_vllm != expected_vllm
+    or actual_transformers != expected_transformers
+    or actual_hub != expected_hub
+):
     print(
         "vLLM base dependency mismatch: "
-        f"transformers={actual} (expected {expected_transformers}), "
+        f"vllm={actual_vllm} (expected {expected_vllm}), "
+        f"transformers={actual_transformers} (expected {expected_transformers}), "
         f"huggingface_hub={actual_hub} (expected {expected_hub})",
         file=sys.stderr,
     )
     sys.exit(1)
-print(f"vllm-unified transformers={actual} huggingface_hub={actual_hub}")
+print(
+    "vllm-unified "
+    f"vllm={actual_vllm} transformers={actual_transformers} huggingface_hub={actual_hub}"
+)
 PY
 
 # ── Kanana risk-prompt: Llama head_dim guard ────────────────────────────────
@@ -104,6 +116,8 @@ RUN python3 /usr/local/bin/transformers_llama_head_dim_guard.py --json \
 RUN python3 - <<'PY'
 import huggingface_hub
 import transformers
+import vllm
+print("vllm-unified vllm=", vllm.__version__)
 print("vllm-unified transformers=", transformers.__version__)
 print("vllm-unified huggingface_hub=", huggingface_hub.__version__)
 PY

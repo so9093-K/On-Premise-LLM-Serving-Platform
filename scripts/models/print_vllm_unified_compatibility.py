@@ -16,7 +16,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--key",
-        choices=("target_platform", "base_image", "transformers", "huggingface_hub"),
+        choices=("target_platform", "base_image", "vllm", "transformers", "huggingface_hub"),
         default="transformers",
     )
     args = parser.parse_args()
