@@ -52,7 +52,7 @@ def _public_models_from_registry(
     if deployment_target.supports("risk"):
         enabled_ids.update(
             str(cfg.get("source_model", key))
-            for key, cfg in (model_serving.get("risk_adapter", {}).get("detectors", {}) or {}).items()
+            for key, cfg in (model_serving.get("risk_signal_service", {}).get("detectors", {}) or {}).items()
             if isinstance(cfg, dict) and cfg.get("type") == "vllm" and cfg.get("enabled", True) is True
         )
     public_models: list[dict[str, Any]] = []
@@ -134,10 +134,10 @@ def _build_runtime_endpoints(
     return endpoints
 
 
-def _risk_detectors_from_config(risk_adapter_cfg: dict[str, Any]) -> tuple[RiskDetectorSettings, ...]:
-    detectors_cfg = risk_adapter_cfg.get("detectors")
+def _risk_detectors_from_config(risk_signal_service_cfg: dict[str, Any]) -> tuple[RiskDetectorSettings, ...]:
+    detectors_cfg = risk_signal_service_cfg.get("detectors")
     if not isinstance(detectors_cfg, dict) or not detectors_cfg:
-        raise RuntimeError("risk_adapter.detectors must be a non-empty mapping in configs/model_serving.yaml")
+        raise RuntimeError("risk_signal_service.detectors must be a non-empty mapping in configs/model_serving.yaml")
     detectors: list[RiskDetectorSettings] = []
     for key, cfg in detectors_cfg.items():
         fixed = cfg.get("fixed_parameters", {}) if isinstance(cfg.get("fixed_parameters", {}), dict) else {}
@@ -198,11 +198,11 @@ def _embedding_profiles_from_config(model_serving: dict[str, Any]) -> dict[str, 
     return profiles
 
 
-def _aggregate_order(risk_adapter_cfg: dict[str, Any], detectors: tuple[RiskDetectorSettings, ...]) -> tuple[str, ...]:
-    aggregate_cfg = risk_adapter_cfg.get("aggregate", {}) if isinstance(risk_adapter_cfg.get("aggregate", {}), dict) else {}
+def _aggregate_order(risk_signal_service_cfg: dict[str, Any], detectors: tuple[RiskDetectorSettings, ...]) -> tuple[str, ...]:
+    aggregate_cfg = risk_signal_service_cfg.get("aggregate", {}) if isinstance(risk_signal_service_cfg.get("aggregate", {}), dict) else {}
     order = aggregate_cfg.get("detector_order")
     if order is None:
-        order = risk_adapter_cfg.get("detector_order")
+        order = risk_signal_service_cfg.get("detector_order")
     if order is None:
         order = [detector.key for detector in detectors if detector.enabled]
     enabled = {detector.key for detector in detectors if detector.enabled}
@@ -269,9 +269,9 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         float(timeouts.get("gateway_request_seconds", 125)),
         minimum=0.1,
     )
-    risk_adapter_timeout_seconds = _as_float(
+    risk_signal_service_timeout_seconds = _as_float(
         "RISK_SIGNAL_SERVICE_TIMEOUT_SECONDS",
-        float(timeouts.get("risk_adapter_seconds", 15)),
+        float(timeouts.get("risk_signal_service_seconds", 15)),
         minimum=0.1,
     )
 
@@ -309,16 +309,16 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         if deployment_target.supports("embeddings")
         else {}
     )
-    risk_adapter_cfg = model_serving.get("risk_adapter")
-    if deployment_target.supports("risk") and not isinstance(risk_adapter_cfg, dict):
-        raise RuntimeError("risk_adapter must be configured in configs/model_serving.yaml")
-    risk_adapter_cfg = risk_adapter_cfg if isinstance(risk_adapter_cfg, dict) else {}
+    risk_signal_service_cfg = model_serving.get("risk_signal_service")
+    if deployment_target.supports("risk") and not isinstance(risk_signal_service_cfg, dict):
+        raise RuntimeError("risk_signal_service must be configured in configs/model_serving.yaml")
+    risk_signal_service_cfg = risk_signal_service_cfg if isinstance(risk_signal_service_cfg, dict) else {}
     risk_detectors = (
-        _risk_detectors_from_config(risk_adapter_cfg)
+        _risk_detectors_from_config(risk_signal_service_cfg)
         if deployment_target.supports("risk")
         else ()
     )
-    aggregate_detector_order = _aggregate_order(risk_adapter_cfg, risk_detectors)
+    aggregate_detector_order = _aggregate_order(risk_signal_service_cfg, risk_detectors)
     main_llm = runtime_endpoints["main_llm"]
     # timeout budget에는 vLLM detector만 반영된다; local detector는 in-process로 실행된다.
     risk_detector_endpoints = tuple(
@@ -332,17 +332,17 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         )
     )
 
-    risk_adapter_execution = str(risk_adapter_cfg.get("aggregate", {}).get("execution", risk_adapter_cfg.get("aggregate_execution", "sequential")))
+    risk_signal_service_execution = str(risk_signal_service_cfg.get("aggregate", {}).get("execution", risk_signal_service_cfg.get("aggregate_execution", "sequential")))
     if deployment_target.supports("risk"):
         validate_timeout_budget(
             gateway_timeout_seconds=gateway_timeout_seconds,
-            risk_adapter_timeout_seconds=risk_adapter_timeout_seconds,
+            risk_signal_service_timeout_seconds=risk_signal_service_timeout_seconds,
             main_llm=main_llm,
             risk_detectors=risk_detector_endpoints,
-            risk_adapter_execution=risk_adapter_execution,
+            risk_signal_service_execution=risk_signal_service_execution,
         )
 
-    risk_input_policy = risk_adapter_cfg.get("input_policy", {})
+    risk_input_policy = risk_signal_service_cfg.get("input_policy", {})
     detector_windows = [endpoint.max_model_len for endpoint in risk_detector_endpoints]
     if any(window is None for window in detector_windows):
         raise RuntimeError("Each enabled vLLM risk detector must declare max_model_len in configs/model_serving.yaml.")
@@ -366,9 +366,9 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         deployment_target=deployment_target,
         security=security,
         gateway_timeout_seconds=gateway_timeout_seconds,
-        risk_adapter_timeout_seconds=risk_adapter_timeout_seconds,
-        risk_adapter_base_url=(
-            _env("RISK_SIGNAL_SERVICE_BASE_URL", str(risk_adapter_cfg.get("endpoint", ""))).rstrip("/")
+        risk_signal_service_timeout_seconds=risk_signal_service_timeout_seconds,
+        risk_signal_service_base_url=(
+            _env("RISK_SIGNAL_SERVICE_BASE_URL", str(risk_signal_service_cfg.get("endpoint", ""))).rstrip("/")
             if deployment_target.supports("risk")
             else ""
         ),
