@@ -452,6 +452,12 @@ python scripts/validation/runtime_validation.py --allow-failures
 Runtime report는 check 결과와 latency·상태 정보를 중심으로 기록한다.
 인증 token과 raw prompt, model output은 report의 운영 증빙 범위에서 제외한다.
 
+`reports/runtime/`은 repository가 소유하지 않는 실행 산출물이다. 새 Main Model qualification은
+runtime report를 직접 Git evidence로 취급하지 않고, current profile/runtime artifact/hardware
+fingerprint와 stable check 결과를 결합한 candidate를 검토한 뒤
+`evidence/qualification/runs/*.json` receipt로 명시적으로 승격한다. qualified-run catalog record와
+receipt 내용은 repository validator가 같은 계약으로 비교한다.
+
 ---
 
 ## 8.6 변경 유형별 검증 선택

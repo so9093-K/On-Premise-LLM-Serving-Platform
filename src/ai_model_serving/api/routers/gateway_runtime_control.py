@@ -149,6 +149,7 @@ _MAIN_MODEL_STATUS_EXAMPLE = {
         "profile_id": _DEFAULT_PROFILE_ID,
         "image_ref": PLACEHOLDER_RUNTIME_IMAGE,
         "image_id": "sha256:" + "1" * 64,
+        "image_digest": PLACEHOLDER_RUNTIME_IMAGE.split("@", 1)[1],
         "runtime_engine": {"name": "vllm", "version": "0.25.1"},
         "error": None,
         "observed_at": 1782086258.2,
@@ -1139,7 +1140,7 @@ def build_router(
                         },
                         "stopped": {
                             "summary": "정지됨 (VRAM 회수, gate closed)",
-                            "value": {**_MAIN_MODEL_STATUS_EXAMPLE, "gate": "closed", "runtime_state": "stopped", "observed_runtime": {"status": "stopped", "container_state": "exited", "health": None, "profile_id": _DEFAULT_PROFILE_ID, "image_ref": PLACEHOLDER_RUNTIME_IMAGE, "image_id": "sha256:" + "1" * 64, "runtime_engine": {"name": "vllm", "version": "0.25.1"}, "error": None, "observed_at": 1782086258.2}},
+                            "value": {**_MAIN_MODEL_STATUS_EXAMPLE, "gate": "closed", "runtime_state": "stopped", "observed_runtime": {"status": "stopped", "container_state": "exited", "health": None, "profile_id": _DEFAULT_PROFILE_ID, "image_ref": PLACEHOLDER_RUNTIME_IMAGE, "image_id": "sha256:" + "1" * 64, "image_digest": PLACEHOLDER_RUNTIME_IMAGE.split("@", 1)[1], "runtime_engine": {"name": "vllm", "version": "0.25.1"}, "error": None, "observed_at": 1782086258.2}},
                         },
                         "switch_in_progress": {
                             "summary": "전환 중 (gate closed, 작업 진행)",
@@ -1153,7 +1154,7 @@ def build_router(
                                     "status": "validating",
                                     "stage": "validating",
                                 },
-                                "observed_runtime": {"status": "starting", "container_state": "running", "health": "starting", "profile_id": _DEFAULT_PROFILE_ID, "image_ref": PLACEHOLDER_RUNTIME_IMAGE, "image_id": "sha256:" + "1" * 64, "runtime_engine": {"name": "vllm", "version": "0.25.1"}, "error": None, "observed_at": 1782086258.2},
+                                "observed_runtime": {"status": "starting", "container_state": "running", "health": "starting", "profile_id": _DEFAULT_PROFILE_ID, "image_ref": PLACEHOLDER_RUNTIME_IMAGE, "image_id": "sha256:" + "1" * 64, "image_digest": PLACEHOLDER_RUNTIME_IMAGE.split("@", 1)[1], "runtime_engine": {"name": "vllm", "version": "0.25.1"}, "error": None, "observed_at": 1782086258.2},
                             },
                         },
                     }}

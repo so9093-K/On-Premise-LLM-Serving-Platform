@@ -202,16 +202,25 @@ def test_observe_runtime_reports_container_health_and_profile(monkeypatch):
             },
         }
 
+    async def fake_inspect_image(_image_id):
+        return {"RepoDigests": ["registry.example.com/vllm@sha256:" + "e" * 64]}
+
     monkeypatch.setattr(backend, "_container_id", fake_container_id)
     monkeypatch.setattr(backend, "_inspect", fake_inspect)
+    monkeypatch.setattr(backend, "_inspect_image", fake_inspect_image)
 
-    assert asyncio.run(backend.observe_runtime(catalog)) == {
+    observed = asyncio.run(backend.observe_runtime(catalog))
+    assert observed == {
         "status": "ready",
         "container_state": "running",
         "health": "healthy",
         "profile_id": profile.profile_id,
         "image_ref": profile.image,
         "image_id": "sha256:" + "c" * 64,
+        "image_digest": DockerMainModelBackend._distribution_image_digest(
+            profile.image,
+            {"RepoDigests": ["registry.example.com/vllm@sha256:" + "e" * 64]},
+        ),
         "runtime_engine": {"name": "vllm", "version": "0.25.1"},
         "error": None,
     }
@@ -236,14 +245,48 @@ def test_observe_runtime_does_not_guess_engine_version_without_image_label(monke
             },
         }
 
+    async def fake_inspect_image(_image_id):
+        return {"RepoDigests": []}
+
     monkeypatch.setattr(backend, "_container_id", fake_container_id)
     monkeypatch.setattr(backend, "_inspect", fake_inspect)
+    monkeypatch.setattr(backend, "_inspect_image", fake_inspect_image)
 
     observed = asyncio.run(backend.observe_runtime(catalog))
 
     assert observed["runtime_engine"] == {"name": "vllm", "version": None}
     assert observed["image_ref"] == profile.image
     assert observed["image_id"] == "sha256:" + "d" * 64
+    assert observed["image_digest"] == DockerMainModelBackend._distribution_image_digest(
+        profile.image, {"RepoDigests": []}
+    )
+
+
+def test_distribution_image_digest_uses_digest_pinned_image_ref() -> None:
+    digest = "sha256:" + "e" * 64
+    assert DockerMainModelBackend._distribution_image_digest(
+        "registry.example.com/vllm@" + digest,
+        {"RepoDigests": []},
+    ) == digest
+
+
+def test_distribution_image_digest_matches_repository_and_does_not_guess_ambiguous() -> None:
+    expected = "sha256:" + "e" * 64
+    other = "sha256:" + "f" * 64
+    inspected = {
+        "RepoDigests": [
+            "registry.example.com/vllm@" + expected,
+            "registry.example.com/other@" + other,
+        ]
+    }
+    assert DockerMainModelBackend._distribution_image_digest(
+        "registry.example.com/vllm:stable",
+        inspected,
+    ) == expected
+    assert DockerMainModelBackend._distribution_image_digest(
+        "registry.example.com/unknown:stable",
+        inspected,
+    ) is None
 
 
 def test_observed_started_at_returns_container_state_started_at(monkeypatch):

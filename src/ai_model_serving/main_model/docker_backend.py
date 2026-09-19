@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import re
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,7 @@ from .cache import default_hf_hub_cache_dir, prepare_model_snapshot
 _IMAGE_CANARY_JPEG_B64 = TINY_JPEG_1X1_B64
 _AUDIO_CANARY_M4A_B64 = TINY_M4A_AAC_B64
 _VIDEO_CANARY_MP4_B64 = TINY_MP4_VIDEO_B64
+_IMAGE_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 # Docker Engine API HTTP 호출 타임아웃(초 단위). 이 값들은 로컬 docker 소켓에 대한
 # 요청만을 제한하며, 모델 lifecycle(drain/stop/startup)은 catalog.runtime에 있는
@@ -116,6 +118,52 @@ class DockerMainModelBackend:
             response.raise_for_status()
             return response.json()
 
+    async def _inspect_image(self, image_id: str) -> dict[str, Any]:
+        async with self._client() as client:
+            response = await client.get(f"/images/{image_id}/json", timeout=_DOCKER_INSPECT_TIMEOUT)
+            response.raise_for_status()
+            payload = response.json()
+            if not isinstance(payload, dict):
+                raise RuntimeError("Docker image inspect must be a mapping")
+            return payload
+
+    @staticmethod
+    def _distribution_image_digest(
+        image_ref: str | None,
+        image_inspected: dict[str, Any],
+    ) -> str | None:
+        """실행 image의 registry/distribution digest를 반환하고 추측하지 않는다."""
+        if image_ref and "@" in image_ref:
+            digest = image_ref.rsplit("@", 1)[1]
+            if _IMAGE_DIGEST.fullmatch(digest):
+                return digest
+
+        raw_repo_digests = image_inspected.get("RepoDigests")
+        if not isinstance(raw_repo_digests, list):
+            return None
+
+        repo_digests: list[tuple[str, str]] = []
+        for value in raw_repo_digests:
+            if not isinstance(value, str) or "@" not in value:
+                continue
+            repository, digest = value.rsplit("@", 1)
+            if _IMAGE_DIGEST.fullmatch(digest):
+                repo_digests.append((repository, digest))
+        if not repo_digests:
+            return None
+
+        if image_ref:
+            repository = image_ref.rsplit("@", 1)[0]
+            last_segment = repository.rsplit("/", 1)[-1]
+            if ":" in last_segment:
+                repository = repository.rsplit(":", 1)[0]
+            matched = {digest for repo, digest in repo_digests if repo == repository}
+            if len(matched) == 1:
+                return next(iter(matched))
+
+        candidates = {digest for _, digest in repo_digests}
+        return next(iter(candidates)) if len(candidates) == 1 else None
+
     async def observed_started_at(self, catalog: MainModelCatalog) -> str | None:
         """실행 중인 컨테이너의 Docker ``State.StartedAt``을 반환하고 없으면 ``None``을 반환한다.
 
@@ -169,6 +217,14 @@ class DockerMainModelBackend:
         vllm_version_value = labels.get("ai_model_serving.vllm_version")
         image_ref = str(image_ref_value) if image_ref_value else None
         image_id = str(image_id_value) if image_id_value else None
+        image_inspected: dict[str, Any] = {}
+        if image_id and not (
+            image_ref
+            and "@" in image_ref
+            and _IMAGE_DIGEST.fullmatch(image_ref.rsplit("@", 1)[1])
+        ):
+            image_inspected = await self._inspect_image(image_id)
+        image_digest = self._distribution_image_digest(image_ref, image_inspected)
         vllm_version = str(vllm_version_value) if vllm_version_value else None
         container_state = str(state.get("Status") or "unknown")
         health_value = state.get("Health", {}).get("Status")
@@ -190,6 +246,7 @@ class DockerMainModelBackend:
             "profile_id": self._profile_from_inspected(catalog, inspected),
             "image_ref": image_ref,
             "image_id": image_id,
+            "image_digest": image_digest,
             "runtime_engine": {"name": "vllm", "version": vllm_version},
             "error": None,
         }

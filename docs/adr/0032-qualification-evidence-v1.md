@@ -85,6 +85,17 @@ v1 도입 이후 새로 `verified` 승격의 근거로 만드는 record는 `qual
 
 추가 관측값(context, concurrency, KV cache, latency 등)은 `observations`에 확장할 수 있다.
 
+`runtime.image_digest`는 Docker daemon의 local image ID가 아니라 실행 artifact의
+registry/distribution digest다. container가 digest-pinned reference로 생성되었으면 해당 digest를
+사용하고, tag/reference만 남아 있으면 Docker image metadata의 RepoDigest에서 실제 repository와
+일치하는 단일 digest만 인정한다. 모호하거나 관측할 수 없는 경우 다른 값을 대신 넣지 않는다.
+
+새 `qualified_run`의 durable source는 `evidence/qualification/runs/<record-id>.json` receipt다.
+`reports/runtime/`은 계속 repository가 소유하지 않는 실행 산출물이며 evidence source로 직접
+승격하지 않는다. receipt는 `source`를 제외한 catalog record와 같은 최소 fingerprint/check
+결과를 보존하고, repository validator가 양쪽 drift를 거부한다. Candidate 생성과 이 receipt의
+Git 승격은 별도 단계다.
+
 `qualified_run.checks`의 ID는 `configs/qualification_checks.yaml`에 등록되어 있어야 한다.
 record의 `capabilities`마다 registry가 선언한 required check를 모두 포함해야 하며,
 `result: passed` record에서는 required check가 하나라도 `failed` 또는 `skipped`이면

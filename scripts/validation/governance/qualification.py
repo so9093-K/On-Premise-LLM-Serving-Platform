@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 from typing import Any
 
 from .common import ROOT, read_yaml
@@ -9,6 +11,7 @@ from .common import ROOT, read_yaml
 _IMAGE_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}(?:[T ][^\s]+)?$")
 _CHECK_STATUSES = {"passed", "failed", "skipped"}
+_QUALIFICATION_RECEIPT_DIR = Path("evidence/qualification/runs")
 
 
 def _non_empty_string(value: object) -> bool:
@@ -174,6 +177,68 @@ def _validate_qualified_run_checks(
         )
 
 
+def _resolve_source_path(
+    record_id: str,
+    source: dict[str, Any],
+    *,
+    root: Path,
+) -> tuple[Path, Path]:
+    relative = Path(str(source["path"]))
+    if relative.is_absolute() or ".." in relative.parts:
+        raise SystemExit(
+            f"qualification evidence {record_id!r}.source.path must stay inside the repository"
+        )
+    resolved = root / relative
+    if not resolved.exists():
+        raise SystemExit(
+            f"qualification evidence {record_id!r}.source.path does not exist: {source['path']}"
+        )
+    return relative, resolved
+
+
+def _validate_qualified_run_receipt(
+    record_id: str,
+    record: dict[str, Any],
+    *,
+    root: Path,
+) -> None:
+    source = record["source"]
+    relative, receipt_path = _resolve_source_path(record_id, source, root=root)
+    try:
+        relative.relative_to(_QUALIFICATION_RECEIPT_DIR)
+    except ValueError as exc:
+        raise SystemExit(
+            f"qualification evidence {record_id!r} qualified_run source must live under "
+            "evidence/qualification/runs/"
+        ) from exc
+    if receipt_path.suffix != ".json":
+        raise SystemExit(
+            f"qualification evidence {record_id!r} qualified_run source must be a JSON receipt"
+        )
+    try:
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(
+            f"qualification evidence {record_id!r} qualified_run receipt must be valid JSON"
+        ) from exc
+    if (
+        not isinstance(receipt, dict)
+        or set(receipt) != {"version", "kind", "record"}
+        or receipt.get("version") != 1
+        or receipt.get("kind") != "qualification_run_receipt"
+        or not isinstance(receipt.get("record"), dict)
+    ):
+        raise SystemExit(
+            f"qualification evidence {record_id!r} qualified_run receipt must declare "
+            "version=1, kind=qualification_run_receipt, and record"
+        )
+    expected = {key: value for key, value in record.items() if key != "source"}
+    if receipt["record"] != expected:
+        raise SystemExit(
+            f"qualification evidence {record_id!r} qualified_run receipt does not match catalog record"
+        )
+
+
 def _validate_record(
     record_id: str,
     record: object,
@@ -181,6 +246,7 @@ def _validate_record(
     *,
     known_checks: set[str],
     capability_requirements: dict[str, frozenset[str]],
+    root: Path,
 ) -> dict[str, Any]:
     if not isinstance(record, dict):
         raise SystemExit(f"qualification evidence {record_id!r} must be a mapping")
@@ -240,11 +306,8 @@ def _validate_record(
         raise SystemExit(
             f"qualification evidence {record_id!r}.source.path and source.note must be non-empty"
         )
-    source_path = ROOT / str(source["path"])
-    if not source_path.exists():
-        raise SystemExit(
-            f"qualification evidence {record_id!r}.source.path does not exist: {source['path']}"
-        )
+    if kind == "legacy_backfill":
+        _resolve_source_path(record_id, source, root=root)
 
     validated_at = record.get("validated_at")
     if validated_at is not None and (
@@ -298,6 +361,7 @@ def _validate_record(
                 raise SystemExit(
                     f"qualification evidence {record_id!r}.hardware.{key} must be non-empty"
                 )
+        _validate_qualified_run_receipt(record_id, record, root=root)
 
     return record
 
@@ -307,6 +371,8 @@ def validate_qualification_evidence_document(
     profiles_document: object,
     deployment_targets_document: object,
     qualification_checks_document: object | None = None,
+    *,
+    root: Path = ROOT,
 ) -> None:
     if not isinstance(document, dict) or document.get("version") != 1:
         raise SystemExit("qualification_evidence.yaml must declare version: 1")
@@ -345,6 +411,7 @@ def validate_qualification_evidence_document(
                 targets,
                 known_checks=known_checks,
                 capability_requirements=capability_requirements,
+                root=root,
             )
         )
 

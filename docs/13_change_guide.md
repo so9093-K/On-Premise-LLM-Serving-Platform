@@ -160,6 +160,7 @@ make build-image
 | `configs/model_serving.yaml` | runtime endpoint, 공통 운영 제한, 고정 non-main checkpoint/runtime 정책 |
 | `configs/main_model_profiles.yaml` | Main Model checkpoint identity와 실행 profile |
 | `configs/qualification_evidence.yaml` | Main Model qualification 검증 기록과 current-profile evidence |
+| `evidence/qualification/runs/` | review를 거쳐 승격된 `qualified_run` 최소 receipt |
 | `configs/services.yaml` | Service 이름, port, host bind metadata |
 | `configs/access_profiles.yaml` | 사용자 접근 profile의 지원 조합 |
 | `configs/exposure_profiles.yaml` | Host port 공개 범위 |
