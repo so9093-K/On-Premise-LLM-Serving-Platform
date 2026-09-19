@@ -203,7 +203,7 @@ def test_access_log_records_readiness_failure_summary():
             "status": "not_ready",
             "dependencies": [
                 {"name": "main_llm_vllm", "status": "ready"},
-                {"name": "risk_prompt_vllm", "status": "not_ready", "message": "READINESS_TIMEOUT"},
+                {"name": "prompt_injection_detector_runtime", "status": "not_ready", "message": "READINESS_TIMEOUT"},
             ],
         },
     )
@@ -211,8 +211,8 @@ def test_access_log_records_readiness_failure_summary():
     record = safe_request_log_record(service="gateway", request=request, status_code=503, elapsed_seconds=0.02)
 
     assert record["readiness_status"] == "not_ready"
-    assert record["readiness_dependencies"] == "risk_prompt_vllm"
-    assert record["readiness_summary"] == "risk_prompt_vllm: READINESS_TIMEOUT"
+    assert record["readiness_dependencies"] == "prompt_injection_detector_runtime"
+    assert record["readiness_summary"] == "prompt_injection_detector_runtime: READINESS_TIMEOUT"
 
 
 def test_access_log_includes_masked_request_response_body_when_set_on_request_state():
