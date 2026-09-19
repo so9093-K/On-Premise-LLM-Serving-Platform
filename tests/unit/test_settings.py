@@ -337,7 +337,7 @@ def test_load_settings_uses_canonical_prompt_injection_detector_env(monkeypatch)
     monkeypatch.setenv("RISK_SIGNAL_SERVICE_TIMEOUT_SECONDS", "10")
 
     settings = load_settings()
-    endpoint = settings.runtime("risk_prompt")
+    endpoint = settings.runtime("prompt_injection_detector")
 
     assert endpoint.base_url == "http://prompt-detector:9503/v1"
     assert endpoint.model == "risk-prompt"
