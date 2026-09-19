@@ -249,7 +249,7 @@ class StreamingResponseObserver:
 class GatewayClientSet(Protocol):
     main_llm: StreamingRuntimeClient
     embedding_clients: dict[str, JsonRuntimeClient]
-    risk_adapter: JsonRuntimeClient | None
+    risk_signal_service: JsonRuntimeClient | None
 
 
 class GatewayService:
@@ -563,7 +563,7 @@ class GatewayService:
         headers = {"authorization": f"Bearer {self.settings.security.internal_service_token}"}
         try:
             response = await asyncio.wait_for(
-                self.clients.risk_adapter.post_json(path, payload, headers=headers),
+                self.clients.risk_signal_service.post_json(path, payload, headers=headers),
                 timeout=self.settings.gateway_timeout_seconds,
             )
             return validate_risk_response(response)
