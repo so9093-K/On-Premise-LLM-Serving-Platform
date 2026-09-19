@@ -15,7 +15,7 @@ if [[ -z "$GATEWAY_PROBE_HOST" || "$GATEWAY_PROBE_HOST" == "0.0.0.0" ]]; then
   GATEWAY_PROBE_HOST="localhost"
 fi
 GATEWAY_BASE_URL="${GATEWAY_BASE_URL:-http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT:-$(service_default_host_port gateway)}}"
-RISK_ADAPTER_BASE_URL="${RISK_ADAPTER_HOST_BASE_URL:-http://localhost:${RISK_SIGNAL_SERVICE_PORT:-$(service_default_host_port risk_signal_service)}}"
+RISK_SIGNAL_SERVICE_BASE_URL="${RISK_SIGNAL_SERVICE_HOST_BASE_URL:-http://localhost:${RISK_SIGNAL_SERVICE_PORT:-$(service_default_host_port risk_signal_service)}}"
 ADMIN_API_KEY="$(local_env_first_value "$ENV_FILE" ADMIN_API_KEY ADMIN_API_KEYS || true)"
 
 status_pid() {
@@ -82,11 +82,11 @@ PY
 status_pid gateway
 status_pid risk_signal_service
 status_health gateway "$GATEWAY_BASE_URL"
-status_health risk_signal_service "$RISK_ADAPTER_BASE_URL"
+status_health risk_signal_service "$RISK_SIGNAL_SERVICE_BASE_URL"
 
 if [[ "$MODE" == "--full" || "$MODE" == "--ready" ]]; then
   status_ready gateway "$GATEWAY_BASE_URL"
-  status_ready risk_signal_service "$RISK_ADAPTER_BASE_URL"
+  status_ready risk_signal_service "$RISK_SIGNAL_SERVICE_BASE_URL"
 elif [[ "$MODE" == "--local" ]]; then
   echo "status mode: local app health only. Use 'make ready-full' for strict vLLM readiness."
 else
