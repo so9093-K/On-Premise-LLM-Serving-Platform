@@ -97,7 +97,7 @@ def ready_response_example() -> dict[str, Any]:
                 "endpoint": endpoints["embedding_vllm"],
             },
             {
-                "name": "risk_signal_service",
+                "name": "risk-signal-service",
                 "status": "ready",
                 "endpoint": endpoints["risk_signal_service"],
             },
@@ -111,8 +111,8 @@ def loading_response_example() -> dict[str, Any]:
         "status": "not_ready",
         "service": "gateway",
         "phase": "waiting_for_dependencies",
-        "not_ready_dependencies": ["risk_signal_service"],
-        "required_not_ready_dependencies": ["risk_signal_service"],
+        "not_ready_dependencies": ["risk-signal-service"],
+        "required_not_ready_dependencies": ["risk-signal-service"],
         "optional_not_ready_dependencies": [],
         "dependencies": [
             {
