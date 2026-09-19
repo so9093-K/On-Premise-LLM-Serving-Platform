@@ -691,7 +691,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
 # Risk Signal Service 엔드포인트 (port 9405)
 # ---------------------------------------------------------------------------
 
-RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
+RISK_SIGNAL_SERVICE_ENDPOINTS: list[EndpointSpec] = [
     EndpointSpec(
         method="GET",
         path="/health",
