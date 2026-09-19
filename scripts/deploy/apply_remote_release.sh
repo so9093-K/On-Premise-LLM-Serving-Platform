@@ -815,7 +815,7 @@ echo "[deploy] validating gateway settings against synced .env..."
 if ! docker run --rm --env-file "${DEPLOY_PATH}/.env" -e APP_CONFIG_ROOT=/app \
   --entrypoint python "${PLATFORM_IMAGE_TO_DEPLOY}" \
   -c "from ai_model_serving.apps.gateway import create_gateway_app; create_gateway_app()"; then
-  fail_after_env_backup "gateway settings failed to load from synced .env — check timeout/limit invariants (REQUEST_TIMEOUT_SECONDS, MAIN_MODEL_TIMEOUT_SECONDS, RISK_ADAPTER_TIMEOUT_SECONDS) before retrying"
+  fail_after_env_backup "gateway settings failed to load from synced .env — check timeout/limit invariants (REQUEST_TIMEOUT_SECONDS, MAIN_MODEL_TIMEOUT_SECONDS, RISK_SIGNAL_SERVICE_TIMEOUT_SECONDS) before retrying"
 fi
 
 if ! configure_release_context "${RELEASE_PATH}"; then
