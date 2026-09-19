@@ -270,7 +270,7 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         minimum=0.1,
     )
     risk_adapter_timeout_seconds = _as_float(
-        "RISK_ADAPTER_TIMEOUT_SECONDS",
+        "RISK_SIGNAL_SERVICE_TIMEOUT_SECONDS",
         float(timeouts.get("risk_adapter_seconds", 15)),
         minimum=0.1,
     )
@@ -368,7 +368,7 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         gateway_timeout_seconds=gateway_timeout_seconds,
         risk_adapter_timeout_seconds=risk_adapter_timeout_seconds,
         risk_adapter_base_url=(
-            _env("RISK_ADAPTER_BASE_URL", str(risk_adapter_cfg.get("endpoint", ""))).rstrip("/")
+            _env("RISK_SIGNAL_SERVICE_BASE_URL", str(risk_adapter_cfg.get("endpoint", ""))).rstrip("/")
             if deployment_target.supports("risk")
             else ""
         ),
