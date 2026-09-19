@@ -474,7 +474,7 @@ runtime_override_example_keys
 | `FASTAPI_DOCS_ENABLED` | `/docs`, `/redoc`, `/openapi.json`과 이들이 쓰는 self-host asset (`/static/*`, `/favicon.ico`) 활성화 여부. 기본 `true`. 문서 화면은 외부 CDN을 쓰지 않으므로 air-gap 망에서도 그대로 뜬다 |
 | `CORS_ALLOWED_ORIGINS` | 브라우저 기반 별도 client를 허용할 origin 목록 |
 | `REQUEST_TIMEOUT_SECONDS` | Gateway 전체 요청 timeout |
-| `RISK_ADAPTER_TIMEOUT_SECONDS` | Gateway의 Risk Signal Service 호출 timeout |
+| `RISK_SIGNAL_SERVICE_TIMEOUT_SECONDS` | Gateway의 Risk Signal Service 호출 timeout |
 | `*_BASE_URL` | vLLM 또는 내부 service endpoint override |
 | `*_MAX_CONCURRENCY` | 모델별 Gateway-side 동시 처리 상한 |
 | `*_QUEUE_TIMEOUT_SECONDS` | 모델별 admission queue 대기 상한 |
