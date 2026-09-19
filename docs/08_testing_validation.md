@@ -458,6 +458,29 @@ fingerprint와 stable check 결과를 결합한 candidate를 검토한 뒤
 `evidence/qualification/runs/*.json` receipt로 명시적으로 승격한다. qualified-run catalog record와
 receipt 내용은 repository validator가 같은 계약으로 비교한다.
 
+후속 candidate 조립은 명시적인 runtime report를 입력으로 받는다.
+
+```bash
+make qualification-candidate REPORT=reports/runtime/runtime_validation_<timestamp>.json
+```
+
+runtime-validation report는 검증 시작/종료 시점에 `GET /admin/main-model`에서 읽은
+qualification identity(profile/model/revision/capability/runtime artifact/last operation)와
+`.env`의 Deployment Target, 실제 NVIDIA GPU UUID/driver를 함께 남긴다. 두 snapshot이
+달라지거나 snapshot을 얻지 못한 report는 qualification candidate의 근거가 될 수 없다.
+
+producer는 실행 시점의 `GET /admin/main-model`, Deployment Target, NVIDIA GPU를 다시 관측해
+report의 종료 snapshot과 현재 profile/image/engine/hardware fingerprint가 계속 일치하는지
+확인한다. required-check 집합은
+`configs/qualification_checks.yaml`을 repository validator와 같은 parser로 읽는다.
+required check가 누락되거나 unknown check/runtime drift/fingerprint 누락이 있으면 candidate를
+만들지 않는다. 완전한 fingerprint에서 stable canary가 `fail` 또는 `skip`이면 debugging/history에
+남길 수 있는 `result: failed` candidate를 생성한다.
+
+Host Inventory가 도입되기 전 v1 producer는 GPU 선택을 추측하지 않기 위해 visible NVIDIA GPU가
+정확히 하나일 때만 candidate를 만든다. 출력은 `reports/qualification/`의 임시 artifact이며
+`configs/qualification_evidence.yaml`이나 `evidence/qualification/runs/`를 자동 변경하지 않는다.
+
 ---
 
 ## 8.6 변경 유형별 검증 선택

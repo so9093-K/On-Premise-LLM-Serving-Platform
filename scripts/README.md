@@ -43,6 +43,7 @@ make down
 | `ops/` | start/stop/status/ready/smoke/reset/clean 같은 운영 명령 |
 | `runtime/` | target 고유 native runtime 환경·모델·process lifecycle |
 | `validation/` | contract validation, static validation, deterministic test runner, live runtime validation |
+| `qualification/` | runtime-validation 결과와 현재 Main Model/runtime/GPU 관측으로 reviewable qualification candidate 생성 |
 | `validation/governance/` | 정적 계약 검증 체크 구현. 프로덕션 패키지(`src/`)가 아니라 여기 사는 이유는 서비스 실행에 필요 없고 런타임 이미지에 실릴 이유도 없기 때문이다. |
 | `validation/runtime/` | live runtime 검증 체크 구현. 살아있는 스택을 밖에서 찔러보는 도구라 서비스 자신이 품지 않는다. |
 | `lib/` | shell/python shared helpers |
@@ -73,6 +74,7 @@ make down
 | `ops/ready_full.sh` | strict `/ready`와 smoke test를 실행한다. 실제 vLLM runtime이 필요하다. |
 | `compose/preflight_compose.sh` | full-stack compose 전 exposure config를 먼저 검증하고, 통과한 뒤 Docker, GPU 표시, effective compose host-published port, secret 상태를 점검한다. compose 내부 `expose` ports는 host port 검사 대상이 아니다. host bind와 port는 `docker compose config` 결과를 따른다. |
 | `validation/runtime_validation.py` | 실제 runtime 검증 결과를 `reports/runtime/` 아래에 기록한다. |
+| `qualification/produce_candidate.py` | 명시한 runtime-validation JSON과 현재 Admin Main Model 상태·NVIDIA GPU를 결합해 `reports/qualification/`에 reviewable receipt candidate를 만든다. repository evidence를 자동 수정하지 않는다. |
 | `models/check_hf_model_config.py` | 고정 vLLM runtime 환경에서 Transformers `AutoConfig`만 로드해 engine·GPU 이전 config loader 문제를 분리한다. |
 | `build/package_release.sh` | 배포 ZIP을 만들고 secret, log, cache, egg-info, generated runtime report를 제외한다. ZIP root는 항상 `ai_model_serving_platform/`로 고정한다. |
 | `ops/down_all.sh` | `.env`와 Compose project name에 의존하지 않고 이 checkout의 host process와 Compose container/network를 정지한다. |

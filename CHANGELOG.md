@@ -56,6 +56,8 @@
 
 - 새 Main Model `qualified_run`은 Docker local image ID와 구분되는 registry/distribution image digest를 사용하고, repository가 소유하는 `evidence/qualification/runs/*.json` receipt를 durable source로 사용한다. Runtime validation의 `reports/runtime/` 산출물은 계속 임시 실행 결과이며, receipt와 qualification catalog record가 다르면 validation이 fail-closed한다.
 
+- `make qualification-candidate REPORT=<runtime-validation.json>`가 stable qualification checks와 검증 시작/종료 시점의 Main Model identity·Deployment Target·NVIDIA GPU UUID/driver snapshot을 사용해 reviewable `qualified_run` receipt candidate를 생성한다. producer는 report 중간 profile/operation/hardware drift, 다른 host에서 복사된 report, required check 누락·unknown check·불완전 fingerprint에서 fail-closed하며 repository evidence나 profile status를 자동 변경하지 않는다.
+
 - Runtime Controller endpoint 환경변수를 `RUNTIME_CONTROLLER_URL`로 수렴했다. 기존 `ADMIN_SIDECAR_URL`은 read/sync compatibility alias로 유지하며, 양쪽에 서로 다른 값이 있으면 fail-closed한다. Compose service ID `admin-sidecar`와 Python client/module 이름은 이번 단계에서 변경하지 않는다.
 
 - 사용자-facing 서비스 용어를 `Runtime Controller`와 `Risk Signal Service`로 수렴했다. API 오류·OpenAPI 설명/예제·CLI help·설정 help에서 `Admin Sidecar`/`Risk Adapter` 표시명을 제거하고, `admin-sidecar`, `risk_adapter`, `ADMIN_SIDECAR_URL` 같은 compatibility/internal identifier는 실제 식별자를 가리킬 때만 유지한다. 중앙 terminology governance가 이 surface까지 검사한다. ([Canonical Terminology](docs/reference/terminology.md))

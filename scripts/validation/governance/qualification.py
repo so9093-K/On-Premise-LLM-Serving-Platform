@@ -75,6 +75,18 @@ def _validate_check_registry(
     return known_checks, requirements
 
 
+def load_qualification_check_contract(
+    document: object | None = None,
+) -> tuple[set[str], dict[str, frozenset[str]]]:
+    """Repository validator와 producer가 같은 stable-check 계약을 사용한다."""
+    checks_document = (
+        read_yaml("configs/qualification_checks.yaml")
+        if document is None
+        else document
+    )
+    return _validate_check_registry(checks_document)
+
+
 def _validate_qualified_run_checks(
     record_id: str,
     record: dict[str, Any],
@@ -393,12 +405,9 @@ def validate_qualification_evidence_document(
         raise SystemExit("deployment_targets.yaml must declare targets")
     targets = set(str(target) for target in targets_document)
 
-    checks_document = (
-        read_yaml("configs/qualification_checks.yaml")
-        if qualification_checks_document is None
-        else qualification_checks_document
+    known_checks, capability_requirements = load_qualification_check_contract(
+        qualification_checks_document
     )
-    known_checks, capability_requirements = _validate_check_registry(checks_document)
 
     validated_records: list[dict[str, Any]] = []
     for record_id, raw_record in records.items():
