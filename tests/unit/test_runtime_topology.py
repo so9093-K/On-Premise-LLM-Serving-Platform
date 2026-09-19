@@ -21,7 +21,7 @@ def test_runtime_topology_uses_explicit_lifecycle_bindings() -> None:
     assert topology.service_by_key == {
         "embedding": "embedding-vllm",
         "embedding_ko": "embedding-ko-vllm",
-        "risk_prompt": "risk-prompt-vllm",
+        "prompt_injection_detector": "risk-prompt-vllm",
     }
     assert "main_llm" not in topology.controllable_keys
     assert topology.bindings_by_key["embedding"].service_id == "embedding_vllm"
@@ -29,7 +29,7 @@ def test_runtime_topology_uses_explicit_lifecycle_bindings() -> None:
     assert topology.runtime_keys_for_features(frozenset({"chat"})) == frozenset({"main_llm"})
     assert topology.required_keys_for_features(
         frozenset({"chat", "embeddings", "risk"})
-    ) == frozenset({"main_llm", "embedding", "embedding_ko", "risk_prompt"})
+    ) == frozenset({"main_llm", "embedding", "embedding_ko", "prompt_injection_detector"})
     assert topology.start_prerequisites_by_service == {
         "embedding-ko-vllm": ["embedding-vllm"],
         "risk-prompt-vllm": ["embedding-vllm", "embedding-ko-vllm"],
@@ -91,7 +91,7 @@ def test_runtime_topology_rejects_invalid_binding(tmp_path, update, message) -> 
 def test_runtime_topology_rejects_prerequisite_cycle(tmp_path) -> None:
     path = _copy_runtime_configs(tmp_path)
     document = yaml.safe_load(path.read_text(encoding="utf-8"))
-    document["runtimes"]["embedding"]["start_prerequisites"] = ["risk_prompt"]
+    document["runtimes"]["embedding"]["start_prerequisites"] = ["prompt_injection_detector"]
     path.write_text(yaml.safe_dump(document), encoding="utf-8")
 
     with pytest.raises(ValueError, match="start_prerequisites contain a cycle"):
