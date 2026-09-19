@@ -123,6 +123,32 @@
                 "null"
               ]
             },
+            "image_ref": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "image_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "runtime_engine": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "required": ["name", "version"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "name": {"type": "string", "minLength": 1},
+                    "version": {"type": ["string", "null"]}
+                  }
+                },
+                {"type": "null"}
+              ]
+            },
             "error": {
               "type": [
                 "string",

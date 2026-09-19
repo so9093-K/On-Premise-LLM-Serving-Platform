@@ -81,11 +81,14 @@ curl -H "Authorization: Bearer $ADMIN_API_KEY" \
 | `last_known_good_profile` | 마지막으로 정상 검증을 통과한 profile |
 | `profile_locked` | Admin API profile 변경 잠금 상태 |
 | `last_operation` | 가장 최근 모델 전환 operation |
-| `observed_runtime` | 조회 시점 Docker 관측값. 실제 컨테이너 상태·health·컨테이너 설정에서 식별한 profile을 포함 |
+| `observed_runtime` | 조회 시점 Docker 관측값. 실제 컨테이너 상태·health·profile, image ref/image ID, image label에서 읽은 runtime engine/version을 포함 |
 
 `active_profile`과 `runtime_state`는 Docker를 매번 조회해 계산한 값이 아니다. 실제 서비스
 가능 여부는 `observed_runtime.status=ready`, `observed_runtime.health=healthy`, 그리고
-`gate=open`을 함께 확인한다. Docker를 읽지 못한 경우에는 응답 전체를 성공처럼 보이게
+`gate=open`을 함께 확인한다. `observed_runtime.image_ref`는 컨테이너 생성에 실제 사용된
+image 참조이고, `image_id`는 Docker image ID다. `runtime_engine.version`은 Unified image의
+`ai_model_serving.vllm_version` label을 읽으며 label이 없는 image의 버전을 추측하지 않는다.
+Docker를 읽지 못한 경우에는 응답 전체를 성공처럼 보이게
 유지하지 않고 `observed_runtime.status=unknown`과 `error`를 반환한다.
 
 ### Runtime 상태와 GPU budget
