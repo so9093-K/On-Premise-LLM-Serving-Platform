@@ -70,6 +70,41 @@ def _canonical_base_image() -> str:
     return str(document["base_image_default"])
 
 
+def test_vllm_version_is_an_explicit_build_compatibility_pin():
+    root = Path(__file__).resolve().parents[2]
+    document = yaml.safe_load(
+        (root / "configs/vllm_unified_build.yaml").read_text(encoding="utf-8")
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/models/print_vllm_unified_compatibility.py",
+            "--key",
+            "vllm",
+        ],
+        cwd=root,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+
+    assert document["compatibility_pins"]["vllm"] == "0.25.1"
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "0.25.1"
+
+
+def test_vllm_unified_dockerfile_verifies_and_labels_engine_version():
+    root = Path(__file__).resolve().parents[2]
+    dockerfile = (root / "ops/images/vllm-unified/Dockerfile").read_text(encoding="utf-8")
+
+    assert "ARG VLLM_VERSION" in dockerfile
+    assert 'LABEL ai_model_serving.vllm_version="${VLLM_VERSION}"' in dockerfile
+    assert "import vllm" in dockerfile
+    assert "actual_vllm = vllm.__version__" in dockerfile
+
+
 def test_vllm_unified_image_resolver_uses_shared_image(tmp_path):
     repo = copy_minimal_repo(tmp_path)
     shared = 'registry.example.com/project/vllm-unified:qualified'

@@ -37,6 +37,7 @@ fi
 CACHE_FROM="${VLLM_UNIFIED_BUILD_CACHE_FROM:-}"
 PULL_BASE_IMAGE="${VLLM_UNIFIED_BUILD_PULL_BASE:-0}"
 PROJECT_BUILD_NO_CACHE="${PROJECT_BUILD_NO_CACHE:-0}"
+VLLM_VERSION="$("$PYTHON_BIN" scripts/models/print_vllm_unified_compatibility.py --key vllm)"
 TRANSFORMERS_VERSION="$("$PYTHON_BIN" scripts/models/print_vllm_unified_compatibility.py --key transformers)"
 HUGGINGFACE_HUB_VERSION="$("$PYTHON_BIN" scripts/models/print_vllm_unified_compatibility.py --key huggingface_hub)"
 SOURCE_REVISION="unknown"
@@ -52,7 +53,7 @@ fi
 
 echo "[vllm-unified-image] building ${IMAGE}"
 echo "[vllm-unified-image] source revision=${SOURCE_REVISION} state=${SOURCE_STATE} target=${TARGET_PLATFORM}"
-echo "[vllm-unified-image] base=${BASE_IMAGE} transformers=${TRANSFORMERS_VERSION} huggingface_hub=${HUGGINGFACE_HUB_VERSION}"
+echo "[vllm-unified-image] base=${BASE_IMAGE} vllm=${VLLM_VERSION} transformers=${TRANSFORMERS_VERSION} huggingface_hub=${HUGGINGFACE_HUB_VERSION}"
 
 if [[ "$PULL_BASE_IMAGE" == "1" ]]; then
   echo "[vllm-unified-image] pulling base image"
@@ -63,12 +64,14 @@ build_args=(
   --platform "$TARGET_PLATFORM"
   --file ops/images/vllm-unified/Dockerfile
   --build-arg "BASE_IMAGE=${BASE_IMAGE}"
+  --build-arg "VLLM_VERSION=${VLLM_VERSION}"
   --build-arg "TRANSFORMERS_VERSION=${TRANSFORMERS_VERSION}"
   --build-arg "HUGGINGFACE_HUB_VERSION=${HUGGINGFACE_HUB_VERSION}"
   --label "org.opencontainers.image.revision=${SOURCE_REVISION}"
   --label "org.opencontainers.image.version=${VERSION}"
   --label "ai_model_serving.source_state=${SOURCE_STATE}"
   --label "ai_model_serving.build_platform=${TARGET_PLATFORM}"
+  --label "ai_model_serving.vllm_version=${VLLM_VERSION}"
   --label "${PROJECT_IMAGE_LABEL_KEY}=${PROJECT_IMAGE_LABEL_VALUE}"
   --label "ai_model_serving.artifact=vllm-unified"
 )

@@ -22,6 +22,8 @@
 
 ### Changed
 
+- Unified vLLM build contract가 engine version을 `configs/vllm_unified_build.yaml`에서 명시적으로 소유한다. Image build는 해당 vLLM 버전을 실제 base 환경에서 검증하고 `ai_model_serving.vllm_version` label로 남겨, qualification evidence가 문서 주석이나 tag를 추측하지 않고 runtime engine version을 연결할 수 있게 했다.
+
 - Runtime validation이 Main Model qualification용 stable check ID를 report에 기록하고, active profile이 image/audio/video 입력을 공개하면 switch-time과 동일한 checked-in media fixture로 실제 chat canary를 실행한다. 이 결과는 후속 `qualified_run` producer가 `configs/qualification_checks.yaml`과 대조할 수 있다.
 
 - Main Model Qualification에 stable check registry를 추가했다. `configs/qualification_checks.yaml`이 capability별 required check를 소유하고, 새 `qualified_run`은 `{id, status}` check 결과를 기록한다. passed evidence에서 required check가 누락되거나 `failed`/`skipped`이면 CI가 fail-closed한다. ([ADR-0032](docs/adr/0032-qualification-evidence-v1.md))
