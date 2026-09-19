@@ -135,6 +135,13 @@
                 "null"
               ]
             },
+            "image_digest": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
             "runtime_engine": {
               "anyOf": [
                 {

@@ -86,7 +86,8 @@ curl -H "Authorization: Bearer $ADMIN_API_KEY" \
 `active_profile`과 `runtime_state`는 Docker를 매번 조회해 계산한 값이 아니다. 실제 서비스
 가능 여부는 `observed_runtime.status=ready`, `observed_runtime.health=healthy`, 그리고
 `gate=open`을 함께 확인한다. `observed_runtime.image_ref`는 컨테이너 생성에 실제 사용된
-image 참조이고, `image_id`는 Docker image ID다. `runtime_engine.version`은 Unified image의
+image 참조이고, `image_id`는 Docker local image ID다. `image_digest`는 실행 image의
+registry/distribution digest이며 단일 값을 관측할 수 없으면 `null`이다. `runtime_engine.version`은 Unified image의
 `ai_model_serving.vllm_version` label을 읽으며 label이 없는 image의 버전을 추측하지 않는다.
 Docker를 읽지 못한 경우에는 응답 전체를 성공처럼 보이게
 유지하지 않고 `observed_runtime.status=unknown`과 `error`를 반환한다.
@@ -167,7 +168,10 @@ v1 이전 검증은 `legacy_backfill`로 구조화한다. 당시 기록되지 �
 image digest를 추측해 채우지 않고 source와 실제 남아 있는 관측값만 보존한다.
 
 v1 이후 새 qualification 승격 근거는 `qualified_run`을 사용하며 검증 시각, runtime engine/version,
-resolved image digest, GPU와 driver version, 실제로 수행한 named checks를 함께 기록한다.
+registry/distribution image digest, GPU와 driver version, 실제로 수행한 named checks를 함께 기록한다.
+Docker local image ID는 distribution digest의 대체값이 아니다. 새 `qualified_run`의
+`source.path`는 review를 거쳐 승격된 `evidence/qualification/runs/*.json` receipt를 가리키며,
+`reports/runtime/`의 원본 runtime-validation report는 실행 산출물로 남는다.
 Stable check ID와 capability별 필수 check는 `configs/qualification_checks.yaml`이 소유하며,
 passed run에서 필수 check의 skip/fail은 허용하지 않는다. 세부 정책은
 [ADR-0032](./adr/0032-qualification-evidence-v1.md)를 따른다.

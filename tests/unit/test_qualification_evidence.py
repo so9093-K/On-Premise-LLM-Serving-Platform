@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import json
 
 import pytest
 
@@ -81,8 +82,29 @@ def _qualified_record(*, result: str = "passed") -> dict:
         "gpu": "NVIDIA RTX 6000 Ada Generation",
         "driver_version": "580.65.06",
     }
+    record["source"] = {
+        "path": "evidence/qualification/runs/candidate.json",
+        "note": "promoted qualification receipt",
+    }
     record["result"] = result
     return evidence
+
+
+def _write_receipt(root, evidence: dict) -> None:
+    record = copy.deepcopy(evidence["records"]["candidate-legacy"])
+    record.pop("source")
+    path = root / "evidence/qualification/runs/candidate.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "kind": "qualification_run_receipt",
+                "record": record,
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 def test_repository_qualification_evidence_is_valid() -> None:
@@ -123,12 +145,40 @@ def test_qualified_run_requires_immutable_runtime_and_hardware_fingerprint() -> 
         validate_qualification_evidence_document(evidence, _profiles(), _targets())
 
 
-def test_complete_qualified_run_is_accepted() -> None:
+def test_complete_qualified_run_is_accepted(tmp_path) -> None:
+    evidence = _qualified_record()
+    _write_receipt(tmp_path, evidence)
     validate_qualification_evidence_document(
-        _qualified_record(),
+        evidence,
         _profiles(),
         _targets(),
+        root=tmp_path,
     )
+
+
+def test_qualified_run_requires_repository_owned_receipt() -> None:
+    evidence = _qualified_record()
+    evidence["records"]["candidate-legacy"]["source"]["path"] = "configs/main_model_profiles.yaml"
+
+    with pytest.raises(SystemExit, match="source must live under evidence/qualification/runs"):
+        validate_qualification_evidence_document(evidence, _profiles(), _targets())
+
+
+def test_qualified_run_rejects_receipt_catalog_drift(tmp_path) -> None:
+    evidence = _qualified_record()
+    _write_receipt(tmp_path, evidence)
+    receipt_path = tmp_path / "evidence/qualification/runs/candidate.json"
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    receipt["record"]["runtime"]["version"] = "different"
+    receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+
+    with pytest.raises(SystemExit, match="receipt does not match catalog record"):
+        validate_qualification_evidence_document(
+            evidence,
+            _profiles(),
+            _targets(),
+            root=tmp_path,
+        )
 
 
 def test_qualified_run_requires_named_check_results() -> None:
@@ -171,16 +221,18 @@ def test_passed_qualified_run_rejects_skipped_required_check() -> None:
         validate_qualification_evidence_document(evidence, _profiles(), _targets())
 
 
-def test_failed_qualified_run_can_preserve_skipped_required_check() -> None:
+def test_failed_qualified_run_can_preserve_skipped_required_check(tmp_path) -> None:
     evidence = _qualified_record(result="failed")
     evidence["records"]["candidate-legacy"]["checks"] = _required_check_results(
         image_status="skipped"
     )
+    _write_receipt(tmp_path, evidence)
 
     validate_qualification_evidence_document(
         evidence,
         _unverified_profiles(),
         _targets(),
+        root=tmp_path,
     )
 
 
