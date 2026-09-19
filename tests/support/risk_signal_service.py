@@ -110,7 +110,7 @@ def _risk_detectors() -> tuple[RiskDetectorSettings, ...]:
 def settings() -> AppSettings:
     endpoint = RuntimeEndpoint("x", "http://runtime/v1", "x", 1)
     embedding = RuntimeEndpoint("test-embed", "http://embed/v1", "test-embed", 1)
-    risk_prompt = RuntimeEndpoint("risk-prompt", "http://prompt/v1", "risk-prompt", 1)
+    prompt_injection_detector = RuntimeEndpoint("risk-prompt", "http://prompt/v1", "risk-prompt", 1)
     return AppSettings(
         app_env="test",
         project_version="0.1.0",
@@ -122,9 +122,9 @@ def settings() -> AppSettings:
         ),
         gateway_timeout_seconds=1,
         risk_signal_service_timeout_seconds=1,
-        runtime_endpoints={"main_llm": endpoint, "embedding": embedding, "risk_prompt": risk_prompt},
-        required_runtime_keys=frozenset({"main_llm", "embedding", "risk_prompt"}),
-        controllable_runtime_keys=frozenset({"embedding", "risk_prompt"}),
+        runtime_endpoints={"main_llm": endpoint, "embedding": embedding, "prompt_injection_detector": prompt_injection_detector},
+        required_runtime_keys=frozenset({"main_llm", "embedding", "prompt_injection_detector"}),
+        controllable_runtime_keys=frozenset({"embedding", "prompt_injection_detector"}),
         # /ready 의존성 이름은 배포 토폴로지가 소유한다. detector 선언도 함께
         # 둬야 production과 같은 이름으로 검증된다.
         runtime_service_ids=_runtime_service_ids(),
