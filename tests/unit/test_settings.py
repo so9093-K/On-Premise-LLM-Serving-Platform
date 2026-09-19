@@ -47,7 +47,7 @@ def isolate_settings_environment(monkeypatch):
         "MAIN_MODEL_STATIC_PROFILE",
         "EMBEDDING_MAX_CONCURRENCY",
         "EMBEDDING_QUEUE_TIMEOUT_SECONDS",
-        "RISK_PROMPT_TIMEOUT_SECONDS",
+        "PROMPT_INJECTION_DETECTOR_TIMEOUT_SECONDS",
         "RISK_SIGNAL_SERVICE_BASE_URL",
         "RISK_SIGNAL_SERVICE_TIMEOUT_SECONDS",
     ]:
@@ -321,7 +321,7 @@ def test_load_settings_rejects_risk_signal_service_timeout_below_sequential_budg
 
 
 def test_load_settings_supports_per_model_timeout_overrides(monkeypatch):
-    monkeypatch.setenv("RISK_PROMPT_TIMEOUT_SECONDS", "3")
+    monkeypatch.setenv("PROMPT_INJECTION_DETECTOR_TIMEOUT_SECONDS", "3")
     monkeypatch.setenv("RISK_SIGNAL_SERVICE_TIMEOUT_SECONDS", "10")
     settings = load_settings()
     assert settings.runtime("risk_prompt").timeout_seconds == 3
