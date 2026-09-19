@@ -47,7 +47,13 @@ def isolate_settings_environment(monkeypatch):
         "MAIN_MODEL_STATIC_PROFILE",
         "EMBEDDING_MAX_CONCURRENCY",
         "EMBEDDING_QUEUE_TIMEOUT_SECONDS",
+        "PROMPT_INJECTION_DETECTOR_BASE_URL",
+        "PROMPT_INJECTION_DETECTOR_MODEL",
         "PROMPT_INJECTION_DETECTOR_TIMEOUT_SECONDS",
+        "PROMPT_INJECTION_DETECTOR_MAX_CONCURRENCY",
+        "PROMPT_INJECTION_DETECTOR_QUEUE_TIMEOUT_SECONDS",
+        "PROMPT_INJECTION_DETECTOR_CIRCUIT_BREAKER_FAILURE_THRESHOLD",
+        "PROMPT_INJECTION_DETECTOR_CIRCUIT_BREAKER_RESET_SECONDS",
         "RISK_SIGNAL_SERVICE_BASE_URL",
         "RISK_SIGNAL_SERVICE_TIMEOUT_SECONDS",
     ]:
@@ -320,11 +326,26 @@ def test_load_settings_rejects_risk_signal_service_timeout_below_sequential_budg
         load_settings()
 
 
-def test_load_settings_supports_per_model_timeout_overrides(monkeypatch):
+def test_load_settings_uses_canonical_prompt_injection_detector_env(monkeypatch):
+    monkeypatch.setenv("PROMPT_INJECTION_DETECTOR_BASE_URL", "http://prompt-detector:9503/v1")
+    monkeypatch.setenv("PROMPT_INJECTION_DETECTOR_MODEL", "risk-prompt")
     monkeypatch.setenv("PROMPT_INJECTION_DETECTOR_TIMEOUT_SECONDS", "3")
+    monkeypatch.setenv("PROMPT_INJECTION_DETECTOR_MAX_CONCURRENCY", "2")
+    monkeypatch.setenv("PROMPT_INJECTION_DETECTOR_QUEUE_TIMEOUT_SECONDS", "4")
+    monkeypatch.setenv("PROMPT_INJECTION_DETECTOR_CIRCUIT_BREAKER_FAILURE_THRESHOLD", "5")
+    monkeypatch.setenv("PROMPT_INJECTION_DETECTOR_CIRCUIT_BREAKER_RESET_SECONDS", "19")
     monkeypatch.setenv("RISK_SIGNAL_SERVICE_TIMEOUT_SECONDS", "10")
+
     settings = load_settings()
-    assert settings.runtime("risk_prompt").timeout_seconds == 3
+    endpoint = settings.runtime("risk_prompt")
+
+    assert endpoint.base_url == "http://prompt-detector:9503/v1"
+    assert endpoint.model == "risk-prompt"
+    assert endpoint.timeout_seconds == 3
+    assert endpoint.max_concurrency == 2
+    assert endpoint.queue_timeout_seconds == 4
+    assert endpoint.circuit_breaker_failure_threshold == 5
+    assert endpoint.circuit_breaker_reset_seconds == 19
 
 
 def test_load_settings_uses_canonical_main_model_runtime_env(monkeypatch):
