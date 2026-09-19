@@ -8,13 +8,180 @@ from .common import ROOT, read_yaml
 
 _IMAGE_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}(?:[T ][^\s]+)?$")
+_CHECK_STATUSES = {"passed", "failed", "skipped"}
 
 
 def _non_empty_string(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
-def _validate_record(record_id: str, record: object, targets: set[str]) -> dict[str, Any]:
+def _validate_check_registry(
+    document: object,
+) -> tuple[set[str], dict[str, frozenset[str]]]:
+    if not isinstance(document, dict) or document.get("version") != 1:
+        raise SystemExit("qualification_checks.yaml must declare version: 1")
+
+    checks = document.get("checks")
+    if not isinstance(checks, dict) or not checks:
+        raise SystemExit("qualification_checks.yaml must declare non-empty checks")
+
+    known_checks: set[str] = set()
+    for check_id, metadata in checks.items():
+        if not _non_empty_string(check_id):
+            raise SystemExit("qualification check ids must be non-empty strings")
+        if not isinstance(metadata, dict):
+            raise SystemExit(
+                f"qualification check {check_id!r} metadata must be a mapping"
+            )
+        if not _non_empty_string(metadata.get("description")):
+            raise SystemExit(
+                f"qualification check {check_id!r}.description must be non-empty"
+            )
+        known_checks.add(str(check_id))
+
+    raw_requirements = document.get("capability_requirements")
+    if not isinstance(raw_requirements, dict) or not raw_requirements:
+        raise SystemExit(
+            "qualification_checks.yaml must declare non-empty capability_requirements"
+        )
+
+    requirements: dict[str, frozenset[str]] = {}
+    for capability, raw_checks in raw_requirements.items():
+        if not _non_empty_string(capability):
+            raise SystemExit(
+                "qualification capability requirement keys must be non-empty strings"
+            )
+        if (
+            not isinstance(raw_checks, list)
+            or not raw_checks
+            or not all(_non_empty_string(item) for item in raw_checks)
+            or len(set(raw_checks)) != len(raw_checks)
+        ):
+            raise SystemExit(
+                f"qualification capability {capability!r} must require a unique "
+                "non-empty check-id list"
+            )
+        unknown = sorted(set(str(item) for item in raw_checks) - known_checks)
+        if unknown:
+            raise SystemExit(
+                f"qualification capability {capability!r} references unknown checks: "
+                + ", ".join(unknown)
+            )
+        requirements[str(capability)] = frozenset(str(item) for item in raw_checks)
+
+    return known_checks, requirements
+
+
+def _validate_qualified_run_checks(
+    record_id: str,
+    record: dict[str, Any],
+    *,
+    known_checks: set[str],
+    capability_requirements: dict[str, frozenset[str]],
+) -> None:
+    checks = record.get("checks")
+    if not isinstance(checks, list) or not checks:
+        raise SystemExit(
+            f"qualification evidence {record_id!r}.checks must be a non-empty "
+            "check result list for qualified_run"
+        )
+
+    statuses: dict[str, str] = {}
+    for index, item in enumerate(checks):
+        if not isinstance(item, dict):
+            raise SystemExit(
+                f"qualification evidence {record_id!r}.checks[{index}] must be a mapping"
+            )
+        allowed_fields = {"id", "status", "note"}
+        unknown_fields = set(item) - allowed_fields
+        if unknown_fields:
+            raise SystemExit(
+                f"qualification evidence {record_id!r}.checks[{index}] has unknown fields: "
+                + ", ".join(sorted(unknown_fields))
+            )
+        check_id = item.get("id")
+        status = item.get("status")
+        if not _non_empty_string(check_id):
+            raise SystemExit(
+                f"qualification evidence {record_id!r}.checks[{index}].id must be non-empty"
+            )
+        check_id = str(check_id)
+        if check_id not in known_checks:
+            raise SystemExit(
+                f"qualification evidence {record_id!r} references unknown qualification "
+                f"check {check_id!r}"
+            )
+        if status not in _CHECK_STATUSES:
+            raise SystemExit(
+                f"qualification evidence {record_id!r}.checks[{index}].status must be "
+                "passed, failed, or skipped"
+            )
+        if check_id in statuses:
+            raise SystemExit(
+                f"qualification evidence {record_id!r}.checks contains duplicate id "
+                f"{check_id!r}"
+            )
+        note = item.get("note")
+        if note is not None and not _non_empty_string(note):
+            raise SystemExit(
+                f"qualification evidence {record_id!r}.checks[{index}].note must be "
+                "non-empty when present"
+            )
+        statuses[check_id] = str(status)
+
+    required: set[str] = set()
+    for capability in record["capabilities"]:
+        required_for_capability = capability_requirements.get(str(capability))
+        if required_for_capability is None:
+            raise SystemExit(
+                f"qualification evidence {record_id!r} capability {capability!r} "
+                "has no required-check mapping"
+            )
+        required.update(required_for_capability)
+
+    missing = sorted(required - statuses.keys())
+    if missing:
+        raise SystemExit(
+            f"qualification evidence {record_id!r} missing required qualification checks: "
+            + ", ".join(missing)
+        )
+
+    if record["result"] == "passed":
+        non_passed_required = sorted(
+            check_id for check_id in required if statuses[check_id] != "passed"
+        )
+        if non_passed_required:
+            details = ", ".join(
+                f"{check_id}={statuses[check_id]}" for check_id in non_passed_required
+            )
+            raise SystemExit(
+                f"qualification evidence {record_id!r} passed result requires every "
+                f"required check to pass; got {details}"
+            )
+        non_passed_recorded = sorted(
+            check_id for check_id, status in statuses.items() if status != "passed"
+        )
+        if non_passed_recorded:
+            raise SystemExit(
+                f"qualification evidence {record_id!r} passed result cannot contain "
+                "failed or skipped checks: "
+                + ", ".join(non_passed_recorded)
+            )
+    elif all(status == "passed" for status in statuses.values()):
+        raise SystemExit(
+            f"qualification evidence {record_id!r} failed result requires at least "
+            "one failed or skipped check"
+        )
+
+
+def _validate_record(
+    record_id: str,
+    record: object,
+    targets: set[str],
+    *,
+    known_checks: set[str],
+    capability_requirements: dict[str, frozenset[str]],
+) -> dict[str, Any]:
     if not isinstance(record, dict):
         raise SystemExit(f"qualification evidence {record_id!r} must be a mapping")
 
@@ -116,17 +283,12 @@ def _validate_record(record_id: str, record: object, targets: set[str]) -> dict[
                 f"qualification evidence {record_id!r} qualified_run deployment_target "
                 "must reference configs/deployment_targets.yaml"
             )
-        checks = record.get("checks")
-        if (
-            not isinstance(checks, list)
-            or not checks
-            or not all(_non_empty_string(item) for item in checks)
-            or len(set(checks)) != len(checks)
-        ):
-            raise SystemExit(
-                f"qualification evidence {record_id!r}.checks must be a unique non-empty "
-                "string list for qualified_run"
-            )
+        _validate_qualified_run_checks(
+            record_id,
+            record,
+            known_checks=known_checks,
+            capability_requirements=capability_requirements,
+        )
         if not isinstance(hardware, dict):
             raise SystemExit(
                 f"qualification evidence {record_id!r} qualified_run requires hardware mapping"
@@ -144,6 +306,7 @@ def validate_qualification_evidence_document(
     document: object,
     profiles_document: object,
     deployment_targets_document: object,
+    qualification_checks_document: object | None = None,
 ) -> None:
     if not isinstance(document, dict) or document.get("version") != 1:
         raise SystemExit("qualification_evidence.yaml must declare version: 1")
@@ -164,11 +327,26 @@ def validate_qualification_evidence_document(
         raise SystemExit("deployment_targets.yaml must declare targets")
     targets = set(str(target) for target in targets_document)
 
+    checks_document = (
+        read_yaml("configs/qualification_checks.yaml")
+        if qualification_checks_document is None
+        else qualification_checks_document
+    )
+    known_checks, capability_requirements = _validate_check_registry(checks_document)
+
     validated_records: list[dict[str, Any]] = []
     for record_id, raw_record in records.items():
         if not _non_empty_string(record_id):
             raise SystemExit("qualification evidence record ids must be non-empty strings")
-        validated_records.append(_validate_record(str(record_id), raw_record, targets))
+        validated_records.append(
+            _validate_record(
+                str(record_id),
+                raw_record,
+                targets,
+                known_checks=known_checks,
+                capability_requirements=capability_requirements,
+            )
+        )
 
     for profile_id, profile in profiles.items():
         if not isinstance(profile, dict):
@@ -213,4 +391,5 @@ def validate_qualification_evidence() -> None:
         read_yaml("configs/qualification_evidence.yaml"),
         read_yaml("configs/main_model_profiles.yaml"),
         read_yaml("configs/deployment_targets.yaml"),
+        read_yaml("configs/qualification_checks.yaml"),
     )
