@@ -101,8 +101,8 @@ class AppSettings:
     security: SecuritySettings
     deployment_target: DeploymentTarget
     gateway_timeout_seconds: float
-    risk_adapter_timeout_seconds: float
-    risk_adapter_base_url: str
+    risk_signal_service_timeout_seconds: float
+    risk_signal_service_base_url: str
     runtime_endpoints: dict[str, RuntimeEndpoint] = field(default_factory=dict)
     required_runtime_keys: frozenset[str] = frozenset()
     controllable_runtime_keys: frozenset[str] = frozenset()
