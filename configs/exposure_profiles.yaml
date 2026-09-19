@@ -24,7 +24,7 @@ profiles:
       - main_llm_vllm
       - embedding_vllm
       - embedding_ko_vllm
-      - risk_prompt_vllm
+      - prompt_injection_detector_runtime
       - risk_signal_service
       - prometheus
       - grafana
