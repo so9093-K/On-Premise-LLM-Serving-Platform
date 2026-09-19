@@ -426,6 +426,13 @@ RUNTIME_VALIDATION_GATEWAY_BASE_URL=http://staging-gateway:9400 python scripts/v
 
 활성 profile이 지원하지 않는 요청 파라미터는 실패로 취급하지 않고 report에 `skip`으로 남긴다. `/v1/models[].request_parameters`가 이 판단의 단일 기준이며, profile이 지원한다고 공개한 기능의 canary 실패만 runtime 검증 실패다.
 
+Main Model qualification에 쓰는 핵심 live check는 JSON report의 `qualification_check_id`에
+stable ID를 함께 기록한다. 현재는 runtime `/models`, Gateway `/v1/models`, text chat과
+active profile이 `input_modalities`로 공개한 image/audio/video chat canary가 해당 ID를 낸다.
+media canary는 switch-time boot validation과 같은 checked-in tiny fixture를 사용한다. profile이
+선언하지 않은 modality는 실행하지 않으며, 향후 qualification producer가 profile capability와
+`configs/qualification_checks.yaml`을 대조해 required check 누락을 fail-closed한다.
+
 ```text
 ready-full
   → 서비스가 실제 요청을 처리할 준비가 되었는지 확인
