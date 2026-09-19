@@ -703,7 +703,7 @@ def build_router(
                 "noop": {"summary": "이미 목표 상태 (no-op)", "value": RUNTIME_TRANSITION_NOOP_EXAMPLE},
                 "main_stopped": {"summary": "메인 정지 (key=main, VRAM 회수)", "value": {"service_key": "main", "state": "stopped", "evicted": []}},
                 "main_active": {"summary": "메인 시작 (key=main)", "value": {"service_key": "main", "state": "active", "evicted": []}},
-                "main_active_force": {"summary": "메인 시작 + 보조 축출 (force)", "value": {"service_key": "main", "state": "active", "evicted": ["risk-prompt-vllm", "embedding-ko-vllm"]}},
+                "main_active_force": {"summary": "메인 시작 + 보조 축출 (force)", "value": {"service_key": "main", "state": "active", "evicted": ["prompt-injection-detector-runtime", "embedding-ko-vllm"]}},
             }}}},
             404: {"content": {"application/json": {"example": RUNTIME_ERROR_404_EXAMPLE}}},
             409: {
