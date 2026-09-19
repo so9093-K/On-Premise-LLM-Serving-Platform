@@ -29,7 +29,7 @@ runtimes:
     controllable: true
     start_prerequisites: [embedding]
   prompt_injection_detector:
-    service_id: risk_prompt_vllm
+    service_id: prompt_injection_detector_runtime
     features: [risk]
     required: true
     enabled: true
