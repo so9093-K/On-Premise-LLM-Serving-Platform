@@ -169,12 +169,12 @@ class AppSettings:
         self._validate_embedding_configuration()
         if not self.risk_detectors:
             detectors: list[RiskDetectorSettings] = []
-            if "risk_prompt" in self.runtime_endpoints:
+            if "prompt_injection_detector" in self.runtime_endpoints:
                 detectors.append(
                     RiskDetectorSettings(
                         key="prompt",
                         route="/v1/risk/detectors/prompt/assessments",
-                        service_key="risk_prompt",
+                        service_key="prompt_injection_detector",
                         source_model="risk-prompt",
                         family="prompt_attack",
                         allowed_codes=frozenset({"A1", "A2"}),

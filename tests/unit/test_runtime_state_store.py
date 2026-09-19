@@ -38,19 +38,19 @@ def test_runtime_state_store_persists_desired_state(tmp_path):
 
 def test_deploy_directive_applies_once_per_release(tmp_path):
     path = tmp_path / "runtime-state.json"
-    keys = {"embedding", "risk_prompt"}
+    keys = {"embedding", "prompt_injection_detector"}
 
     first = RuntimeStateStore(
         path,
         controllable_keys=keys,
-        deferred_keys=("risk_prompt",),
+        deferred_keys=("prompt_injection_detector",),
         release_id="release-1",
     )
-    assert asyncio.run(first.get("risk_prompt")) == RuntimeState.stopped
+    assert asyncio.run(first.get("prompt_injection_detector")) == RuntimeState.stopped
 
     asyncio.run(
         first.set(
-            "risk_prompt",
+            "prompt_injection_detector",
             RuntimeState.active,
             reason="operator_start_requested",
             source="runtime_control",
@@ -59,18 +59,18 @@ def test_deploy_directive_applies_once_per_release(tmp_path):
     restarted = RuntimeStateStore(
         path,
         controllable_keys=keys,
-        deferred_keys=("risk_prompt",),
+        deferred_keys=("prompt_injection_detector",),
         release_id="release-1",
     )
-    assert asyncio.run(restarted.get("risk_prompt")) == RuntimeState.active
+    assert asyncio.run(restarted.get("prompt_injection_detector")) == RuntimeState.active
 
     next_release = RuntimeStateStore(
         path,
         controllable_keys=keys,
-        deferred_keys=("risk_prompt",),
+        deferred_keys=("prompt_injection_detector",),
         release_id="release-2",
     )
-    assert asyncio.run(next_release.get("risk_prompt")) == RuntimeState.stopped
+    assert asyncio.run(next_release.get("prompt_injection_detector")) == RuntimeState.stopped
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert payload["applied_release_id"] == "release-2"
 
@@ -79,19 +79,19 @@ def test_rollback_directive_reactivates_previously_running_runtime(tmp_path):
     path = tmp_path / "runtime-state.json"
     deployed = RuntimeStateStore(
         path,
-        controllable_keys={"risk_prompt"},
-        deferred_keys=("risk_prompt",),
+        controllable_keys={"prompt_injection_detector"},
+        deferred_keys=("prompt_injection_detector",),
         release_id="failed-release",
     )
-    assert asyncio.run(deployed.get("risk_prompt")) == RuntimeState.stopped
+    assert asyncio.run(deployed.get("prompt_injection_detector")) == RuntimeState.stopped
 
     restored = RuntimeStateStore(
         path,
-        controllable_keys={"risk_prompt"},
-        activated_keys=("risk_prompt",),
+        controllable_keys={"prompt_injection_detector"},
+        activated_keys=("prompt_injection_detector",),
         release_id="previous-release",
     )
-    record = asyncio.run(restored.all_records())["risk_prompt"]
+    record = asyncio.run(restored.all_records())["prompt_injection_detector"]
     assert record.state == RuntimeState.active
     assert record.reason == "restored_at_rollback"
     assert record.source == "deploy"
@@ -107,7 +107,7 @@ def test_runtime_state_store_reads_legacy_v1_and_ignores_unknown_keys(tmp_path):
     store = RuntimeStateStore(path)
 
     assert asyncio.run(store.get("embedding")) == RuntimeState.stopped
-    assert asyncio.run(store.get("risk_prompt")) == RuntimeState.active
+    assert asyncio.run(store.get("prompt_injection_detector")) == RuntimeState.active
     assert store.recovery_quarantine_path is None
 
 
@@ -263,13 +263,13 @@ def test_runtime_state_store_quarantines_invalid_known_record_and_stops_all(tmp_
         encoding="utf-8",
     )
 
-    store = RuntimeStateStore(path, controllable_keys={"embedding", "risk_prompt"})
+    store = RuntimeStateStore(path, controllable_keys={"embedding", "prompt_injection_detector"})
 
     assert store.recovery_quarantine_path is not None
     assert store.recovery_quarantine_path.exists()
     assert "invalid record for embedding" in store.recovery_error
     records = asyncio.run(store.all_records())
-    assert set(records) == {"embedding", "risk_prompt"}
+    assert set(records) == {"embedding", "prompt_injection_detector"}
     assert all(record.state == RuntimeState.stopped for record in records.values())
     assert all(record.reason == "state_recovery_required" for record in records.values())
     assert all(record.source == "recovery" for record in records.values())
@@ -297,12 +297,12 @@ def test_corruption_recovery_wins_over_deploy_activation(tmp_path):
 
     store = RuntimeStateStore(
         path,
-        controllable_keys={"risk_prompt"},
-        activated_keys=("risk_prompt",),
+        controllable_keys={"prompt_injection_detector"},
+        activated_keys=("prompt_injection_detector",),
         release_id="release-after-corruption",
     )
 
-    record = asyncio.run(store.all_records())["risk_prompt"]
+    record = asyncio.run(store.all_records())["prompt_injection_detector"]
     assert record.state == RuntimeState.stopped
     assert record.source == "recovery"
     assert record.reason == "state_recovery_required"
@@ -379,7 +379,7 @@ def test_runtime_state_store_writes_reason_metadata(tmp_path):
 
     asyncio.run(
         store.set(
-            "risk_prompt",
+            "prompt_injection_detector",
             RuntimeState.stopped,
             reason="operator_stop_requested",
             source="runtime_control",
@@ -387,7 +387,7 @@ def test_runtime_state_store_writes_reason_metadata(tmp_path):
     )
 
     payload = json.loads(path.read_text(encoding="utf-8"))
-    record = payload["states"]["risk_prompt"]
+    record = payload["states"]["prompt_injection_detector"]
     assert record["state"] == "stopped"
     assert record["reason"] == "operator_stop_requested"
     assert record["source"] == "runtime_control"

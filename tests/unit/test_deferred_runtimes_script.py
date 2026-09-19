@@ -26,7 +26,7 @@ def test_default_profile_defers_all_non_main_runtimes():
 
     payload = json.loads(result.stdout)
     assert payload == {
-        "keys": ["embedding", "embedding_ko", "risk_prompt"],
+        "keys": ["embedding", "embedding_ko", "prompt_injection_detector"],
         "services": ["embedding-vllm", "embedding-ko-vllm", "risk-prompt-vllm"],
         "profile": "main_only",
     }
@@ -36,7 +36,7 @@ def test_explicit_profile_overrides_default_profile():
     result = run_script("--profile", "retrieval_ready", "--output", "json")
 
     payload = json.loads(result.stdout)
-    assert payload["keys"] == ["risk_prompt"]
+    assert payload["keys"] == ["prompt_injection_detector"]
     assert payload["profile"] == "retrieval_ready"
 
 

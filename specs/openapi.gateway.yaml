@@ -3559,7 +3559,7 @@ paths:
       tags:
       - Runtime Control
       summary: 런타임 상태 조회
-      description: '공유 GPU 예산 위의 모든 vLLM 런타임(보조: embedding, embedding_ko, risk_prompt;
+      description: '공유 GPU 예산 위의 모든 vLLM 런타임(보조: embedding, embedding_ko, prompt_injection_detector;
         메인: `local-main`)의 현재 상태와 VRAM 점유를 반환합니다.
 
 
@@ -3600,7 +3600,7 @@ paths:
                       container_status: running
                       vram_fraction: 0.06
                       criticality: retrieval_support_path
-                    - service_key: risk_prompt
+                    - service_key: prompt_injection_detector
                       container: risk-prompt-vllm
                       state: active
                       container_status: running
@@ -3628,7 +3628,7 @@ paths:
                       container_status: exited
                       vram_fraction: 0.04
                       criticality: retrieval_support_path
-                    - service_key: risk_prompt
+                    - service_key: prompt_injection_detector
                       container: risk-prompt-vllm
                       state: active
                       container_status: running
@@ -3693,7 +3693,7 @@ paths:
           enum:
           - embedding
           - embedding_ko
-          - risk_prompt
+          - prompt_injection_detector
           - main
           title: Service Key
         description: GET /admin/runtimes가 반환하는 service_key.
@@ -4038,7 +4038,7 @@ paths:
           enum:
           - embedding
           - embedding_ko
-          - risk_prompt
+          - prompt_injection_detector
           - main
           title: Service Key
         description: GET /admin/runtimes가 반환하는 service_key.
@@ -4060,7 +4060,7 @@ paths:
                 to_stopped_prereq:
                   summary: 보조 중지 — 실제 컨테이너 상태 재확인
                   value:
-                    service_key: risk_prompt
+                    service_key: prompt_injection_detector
                     state: stopped
                     containers_stopped:
                     - risk-prompt-vllm
@@ -4074,7 +4074,7 @@ paths:
                 to_active_prereq:
                   summary: 보조 시작 — 선행 컨테이너 포함
                   value:
-                    service_key: risk_prompt
+                    service_key: prompt_injection_detector
                     state: active
                     containers_started:
                     - embedding-vllm

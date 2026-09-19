@@ -138,7 +138,7 @@ models:
           max: 2048
       max_truncate_prompt_tokens: 2048
       max_embedding_batch_size: 16
-  risk_prompt:
+  prompt_injection_detector:
     name: kakaocorp/kanana-safeguard-prompt-2.1b
     revision: 167d74d4706b236580b0e48318337c7ac6ba7848
     served_model_name: risk-prompt
@@ -204,7 +204,7 @@ risk_signal_service:
       type: vllm
       enabled: true
       route: /v1/risk/detectors/prompt/assessments
-      service_key: risk_prompt
+      service_key: prompt_injection_detector
       source_model: risk-prompt
       family: prompt_attack
       allowed_codes:

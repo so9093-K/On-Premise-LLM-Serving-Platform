@@ -478,7 +478,7 @@ Embedding과 Prompt Injection Detector Runtime은 Runtime Startup Profile에 따
 
 - `embedding`
 - `embedding_ko`
-- `risk_prompt`
+- `prompt_injection_detector`
 
 대표 profile은 다음과 같다.
 

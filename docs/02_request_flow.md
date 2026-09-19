@@ -152,7 +152,7 @@ Runtime 상태 확인 방식은 기능에 따라 다르다.
 | **Generation** | Chat Completions와 Responses 모두 Runtime Controller에서 활성 Main Model profile과 gate 확인 |
 | **Embedding** | Gateway runtime state에서 대상 embedding runtime 확인 |
 | **Retrieval** | Gateway runtime state에서 선택한 embedding runtime 확인 |
-| **Prompt Guard** | Prompt model을 사용하는 경로에서 `risk_prompt` runtime 상태 확인 |
+| **Prompt Guard** | Prompt model을 사용하는 경로에서 `prompt_injection_detector` runtime 상태 확인 |
 
 Main Model 전환 중에는 generation gate가 닫히며 신규 Chat Completions와 Responses 요청은 `MAIN_MODEL_SWITCH_IN_PROGRESS`로 응답한다. Sidecar에 접근할 수 없는 경우 두 generation surface는 `MAIN_MODEL_CONTROL_UNAVAILABLE`로 응답한다.
 
@@ -433,7 +433,7 @@ Client
 Gateway
   │
   ├─ Prompt Request 검증
-  ├─ risk_prompt Runtime 상태 확인
+  ├─ prompt_injection_detector Runtime 상태 확인
   ├─ Internal Service Token 전달
   │
   ▼

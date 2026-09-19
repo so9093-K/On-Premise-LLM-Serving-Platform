@@ -252,12 +252,12 @@ def settings() -> AppSettings:
         security=SecuritySettings(api_key_required=True, api_keys=frozenset({"test-key"}), internal_service_token="internal-test-key"),
         gateway_timeout_seconds=1,
         risk_signal_service_timeout_seconds=1,
-        runtime_endpoints={"main_llm": main_llm, "embedding": embedding, "embedding_ko": embedding_ko, "risk_prompt": endpoint},
-        required_runtime_keys=frozenset({"main_llm", "embedding", "embedding_ko", "risk_prompt"}),
+        runtime_endpoints={"main_llm": main_llm, "embedding": embedding, "embedding_ko": embedding_ko, "prompt_injection_detector": endpoint},
+        required_runtime_keys=frozenset({"main_llm", "embedding", "embedding_ko", "prompt_injection_detector"}),
         # /ready 의존성 이름은 실제 배포 토폴로지가 소유한다. 여기서 다시
         # 적으면 production과 다른 이름으로 테스트가 통과한다.
         runtime_service_ids=_runtime_service_ids(),
-        controllable_runtime_keys=frozenset({"embedding", "embedding_ko", "risk_prompt"}),
+        controllable_runtime_keys=frozenset({"embedding", "embedding_ko", "prompt_injection_detector"}),
         risk_signal_service_base_url="http://risk",
         public_models=public_models(),
         embedding_profiles={

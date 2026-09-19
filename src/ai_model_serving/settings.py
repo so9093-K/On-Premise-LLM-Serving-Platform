@@ -100,7 +100,7 @@ def _runtime_env_names(model_key: str) -> tuple[str, str, str]:
             "MAIN_MODEL_BASE_URL",
             "MAIN_MODEL_ALIAS",
         )
-    if model_key == "risk_prompt":
+    if model_key == "prompt_injection_detector":
         return (
             "PROMPT_INJECTION_DETECTOR",
             "PROMPT_INJECTION_DETECTOR_BASE_URL",
