@@ -109,13 +109,13 @@ class GatewayClients:
                 client = RuntimeClient(settings.runtime(service_key))
                 self.runtime_clients_by_service_key[service_key] = client
             self.embedding_clients[model_id] = client
-        self.risk_adapter = (
+        self.risk_signal_service = (
             RuntimeClient(
                 RuntimeEndpoint(
                     logical_id="risk-signal-service",
-                    base_url=settings.risk_adapter_base_url,
+                    base_url=settings.risk_signal_service_base_url,
                     model="risk-signal-service",
-                    timeout_seconds=settings.risk_adapter_timeout_seconds,
+                    timeout_seconds=settings.risk_signal_service_timeout_seconds,
                     max_concurrency=4,
                 )
             )
@@ -123,8 +123,8 @@ class GatewayClients:
             else None
         )
         self.runtimes: dict[str, Any] = {"main_llm": self.main_llm}
-        if self.risk_adapter is not None:
-            self.runtimes["risk_adapter"] = self.risk_adapter
+        if self.risk_signal_service is not None:
+            self.runtimes["risk_signal_service"] = self.risk_signal_service
         self.runtimes.update(self.runtime_clients_by_service_key)
 
     async def close(self) -> None:
@@ -132,7 +132,7 @@ class GatewayClients:
         for client in (
             self.main_llm,
             *self.runtime_clients_by_service_key.values(),
-            self.risk_adapter,
+            self.risk_signal_service,
             self.runtime_controller,
         ):
             if client is None or id(client) in seen:
