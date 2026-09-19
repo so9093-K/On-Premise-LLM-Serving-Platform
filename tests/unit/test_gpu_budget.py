@@ -12,7 +12,7 @@ from ai_model_serving.gpu_budget import (
 MAIN = Participant("main", 0.76, active=True, priority=100, evictable=False)
 EMB = Participant("embedding", 0.04, active=True, priority=50)
 EMB_KO = Participant("embedding_ko", 0.06, active=True, priority=50)
-RISK = Participant("risk_prompt", 0.065, active=True, priority=50)
+RISK = Participant("prompt_injection_detector", 0.065, active=True, priority=50)
 
 
 def test_reactivating_an_active_runtime_fits_in_place():
@@ -42,7 +42,7 @@ def test_eviction_frees_room_when_possible():
     # 안에서, 가장 큰 evict 대상(risk_prompt 0.065)이면 충분하다 -> 희생자 1개.
     # admin_sidecar는 feasible/victims를 직접 본다 -- 같은 필드로 검증한다.
     assert result.feasible and result.victims
-    assert result.victims == ("risk_prompt",)
+    assert result.victims == ("prompt_injection_detector",)
 
 
 def test_victims_minimise_count_largest_first_within_tier():
@@ -52,7 +52,7 @@ def test_victims_minimise_count_largest_first_within_tier():
     # embedding_ko 0.06 -> 0.125 >= 0.115, 희생자 2개.
     result = plan_activation(fleet, "big", 0.9)
     assert result.feasible
-    assert result.victims == ("risk_prompt", "embedding_ko")
+    assert result.victims == ("prompt_injection_detector", "embedding_ko")
 
 
 def test_lower_priority_tier_evicted_before_higher():
@@ -72,14 +72,14 @@ def test_criticality_policy_evicts_retrieval_before_risk():
     main = Participant("main", 0.76, active=False, priority=100, evictable=False)
     emb = Participant("embedding", 0.04, active=True, priority=50)
     emb_ko = Participant("embedding_ko", 0.06, active=True, priority=50)
-    risk = Participant("risk_prompt", 0.065, active=True, priority=60)
+    risk = Participant("prompt_injection_detector", 0.065, active=True, priority=60)
     fleet = [main, emb, emb_ko, risk]
     # main은 중지됨; target 0.9를 올린다. available 0.765, deficit 0.135.
     # retrieval tier가 먼저(0.06+0.04=0.10 < 0.135), 그다음 risk(0.165 >= 0.135).
     result = plan_activation(fleet, "main", 0.9)
-    assert result.victims == ("embedding_ko", "embedding", "risk_prompt")
+    assert result.victims == ("embedding_ko", "embedding", "prompt_injection_detector")
     # retrieval만으론 부족했기 때문에만 risk가 선택된다; 그래서 마지막이다.
-    assert result.victims[-1] == "risk_prompt"
+    assert result.victims[-1] == "prompt_injection_detector"
 
 
 def test_main_never_auto_evicted_for_others():
