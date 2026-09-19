@@ -4335,8 +4335,9 @@ paths:
 
         - `last_operation` — 가장 최근 전환 작업 요약(`status`, `stage`, `error`).
 
-        - `observed_runtime` — Docker inspect 결과(`container_state`, `health`, `observed_at`).
-        ledger와 어긋나면 drift이며, 이 값이 `null`이면 관측 자체가 실패한 것입니다.
+        - `observed_runtime` — Docker inspect 결과(`container_state`, `health`, `profile_id`,
+        `image_ref`, `image_id`, `runtime_engine`, `observed_at`). ledger와 어긋나면 drift이며,
+        image label에 engine version이 없으면 이를 추측하지 않고 `runtime_engine.version=null`로 반환합니다.
 
 
         Docker 관측은 이 라우트에서만 수행합니다. 요청 경로(`/v1/chat/completions`, `/v1/models`)는 ledger만
@@ -4382,6 +4383,11 @@ paths:
                       container_state: running
                       health: healthy
                       profile_id: gemma4-12b-unified-fp8
+                      image_ref: registry.example.com/vllm-unified@sha256:0000000000000000000000000000000000000000000000000000000000000000
+                      image_id: sha256:1111111111111111111111111111111111111111111111111111111111111111
+                      runtime_engine:
+                        name: vllm
+                        version: 0.25.1
                       observed_at: 1782086258.2
                 stopped:
                   summary: 정지됨 (VRAM 회수, gate closed)
@@ -4414,6 +4420,11 @@ paths:
                       status: stopped
                       container_state: exited
                       profile_id: gemma4-12b-unified-fp8
+                      image_ref: registry.example.com/vllm-unified@sha256:0000000000000000000000000000000000000000000000000000000000000000
+                      image_id: sha256:1111111111111111111111111111111111111111111111111111111111111111
+                      runtime_engine:
+                        name: vllm
+                        version: 0.25.1
                       observed_at: 1782086258.2
                 switch_in_progress:
                   summary: 전환 중 (gate closed, 작업 진행)
@@ -4453,6 +4464,11 @@ paths:
                       container_state: running
                       health: starting
                       profile_id: gemma4-12b-unified-fp8
+                      image_ref: registry.example.com/vllm-unified@sha256:0000000000000000000000000000000000000000000000000000000000000000
+                      image_id: sha256:1111111111111111111111111111111111111111111111111111111111111111
+                      runtime_engine:
+                        name: vllm
+                        version: 0.25.1
                       observed_at: 1782086258.2
         '503':
           description: 'Runtime Controller 연결 또는 상태 파일 오류
