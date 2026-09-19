@@ -166,7 +166,7 @@ def test_static_settings_project_only_main_runtime(monkeypatch) -> None:
     assert settings.runtime("main_llm").base_url == "http://runtime.example:9401/v1"
     assert settings.embedding_profiles == {}
     assert settings.risk_detectors == ()
-    assert settings.risk_adapter_base_url == ""
+    assert settings.risk_signal_service_base_url == ""
     assert settings.runtime_controller_url == ""
     assert settings.static_main_profile == "gemma4-e4b-it"
     assert settings.default_main_model_gateway_policy["max_output_tokens"] == 15_000
@@ -181,7 +181,7 @@ def test_static_gateway_surface_and_clients_are_main_only(monkeypatch) -> None:
     try:
         assert clients.runtime_controller is None
         assert clients.embedding_clients == {}
-        assert clients.risk_adapter is None
+        assert clients.risk_signal_service is None
         assert set(clients.runtimes) == {"main_llm"}
     finally:
         import asyncio
