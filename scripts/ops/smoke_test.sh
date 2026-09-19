@@ -74,7 +74,7 @@ print("default_embedding_model\t" + default_embedding_model)
 print("default_embedding_runtime\t" + required(embedding_profiles[default_embedding_model]["service_key"], "default embedding service_key"))
 print("default_retrieval_model\t" + retrieval_model)
 print("retrieval_runtime\t" + required(embedding_profiles[retrieval_model]["service_key"], "retrieval embedding service_key"))
-print("risk_prompt_runtime\t" + required(serving["risk_signal_service"]["detectors"]["prompt"]["service_key"], "risk_signal_service.detectors.prompt.service_key"))
+print("prompt_injection_detector_runtime\t" + required(serving["risk_signal_service"]["detectors"]["prompt"]["service_key"], "risk_signal_service.detectors.prompt.service_key"))
 print("public_model_ids_json\t" + json.dumps(public_ids, separators=(",", ":")))
 PY
 )
