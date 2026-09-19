@@ -150,8 +150,8 @@ class ExplodingGatewayClients:
         self.embedding_clients = {"local-embed": embedding}
         self.runtime_clients_by_service_key = {"embedding": embedding}
         self.runtimes = {"main_llm": self.main_llm, "embedding": embedding}
-        self.risk_adapter = FakeRuntimeClient({"status": "ready", "service": "risk-signal-service", "dependencies": []})
-        self.runtimes["risk_adapter"] = self.risk_adapter
+        self.risk_signal_service = FakeRuntimeClient({"status": "ready", "service": "risk-signal-service", "dependencies": []})
+        self.runtimes["risk_signal_service"] = self.risk_signal_service
         from ai_model_serving.services.runtime_state import RuntimeStateStore
         self.runtime_state = RuntimeStateStore()
         self.runtime_controller = None
@@ -181,7 +181,7 @@ class FakeGatewayClients:
             "embedding": embedding,
             "embedding_ko": embedding_ko,
         }
-        self.risk_adapter = FakeRuntimeClient(
+        self.risk_signal_service = FakeRuntimeClient(
             {
                 "assessment_id": "risk_1",
                 "status": "completed",
@@ -202,7 +202,7 @@ class FakeGatewayClients:
             "main_llm": self.main_llm,
             "embedding": embedding,
             "embedding_ko": embedding_ko,
-            "risk_adapter": self.risk_adapter,
+            "risk_signal_service": self.risk_signal_service,
         }
         from ai_model_serving.services.runtime_state import RuntimeStateStore
         self.runtime_state = RuntimeStateStore()
@@ -251,14 +251,14 @@ def settings() -> AppSettings:
         deployment_target=_DYNAMIC_TARGET,
         security=SecuritySettings(api_key_required=True, api_keys=frozenset({"test-key"}), internal_service_token="internal-test-key"),
         gateway_timeout_seconds=1,
-        risk_adapter_timeout_seconds=1,
+        risk_signal_service_timeout_seconds=1,
         runtime_endpoints={"main_llm": main_llm, "embedding": embedding, "embedding_ko": embedding_ko, "risk_prompt": endpoint},
         required_runtime_keys=frozenset({"main_llm", "embedding", "embedding_ko", "risk_prompt"}),
         # /ready 의존성 이름은 실제 배포 토폴로지가 소유한다. 여기서 다시
         # 적으면 production과 다른 이름으로 테스트가 통과한다.
         runtime_service_ids=_runtime_service_ids(),
         controllable_runtime_keys=frozenset({"embedding", "embedding_ko", "risk_prompt"}),
-        risk_adapter_base_url="http://risk",
+        risk_signal_service_base_url="http://risk",
         public_models=public_models(),
         embedding_profiles={
             "local-embed": EmbeddingProfile(
