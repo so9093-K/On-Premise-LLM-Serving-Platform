@@ -17,7 +17,7 @@ from ...services.runtime_controller_client import RuntimeControllerUnavailableEr
 _GW = {(s.method, s.path): s for s in GATEWAY_ENDPOINTS}
 
 
-def _risk_adapter_readiness(body: dict[str, Any]) -> tuple[str, str | None]:
+def _risk_signal_service_readiness(body: dict[str, Any]) -> tuple[str, str | None]:
     status = READY if body.get("status") == READY else NOT_READY
     if status == READY:
         return status, None
@@ -86,15 +86,15 @@ async def _readiness(
         ),
         *embedding_probes,
     ]
-    risk_adapter = getattr(clients, "risk_adapter", None)
-    if settings.feature_enabled("risk") and risk_adapter is not None:
+    risk_signal_service = getattr(clients, "risk_signal_service", None)
+    if settings.feature_enabled("risk") and risk_signal_service is not None:
         probes.append(
             DependencyProbe(
-                "risk_adapter",
-                risk_adapter,
+                "risk-signal-service",
+                risk_signal_service,
                 "/ready",
                 {"authorization": f"Bearer {admin_token}"} if admin_token else None,
-                _risk_adapter_readiness,
+                _risk_signal_service_readiness,
                 required=await runtime_required("risk_prompt"),
             )
         )
