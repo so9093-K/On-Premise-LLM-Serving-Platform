@@ -80,9 +80,9 @@ services:
   risk_prompt_vllm:
     compose_service: risk-prompt-vllm
     container_port: 9403
-    host_env_port: RISK_PROMPT_VLLM_PORT
+    host_env_port: PROMPT_INJECTION_DETECTOR_RUNTIME_PORT
     default_host_port: 9403
-    host_env_bind: RISK_PROMPT_VLLM_BIND_ADDR
+    host_env_bind: PROMPT_INJECTION_DETECTOR_RUNTIME_BIND_ADDR
     default_bind: "0.0.0.0"
     categories:
       - model_runtime
