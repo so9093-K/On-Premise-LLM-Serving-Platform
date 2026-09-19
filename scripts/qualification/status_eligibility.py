@@ -1,11 +1,18 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
 import argparse
 import json
+import sys
+from pathlib import Path
 from typing import Any
 
-from scripts.validation.governance.common import read_yaml
-from scripts.validation.governance.qualification import (
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.validation.governance.common import read_yaml  # noqa: E402
+from scripts.validation.governance.qualification import (  # noqa: E402
     validate_qualification_evidence_document,
 )
 
@@ -41,7 +48,9 @@ def eligible_qualified_run_ids(
         )
 
     capabilities = profile.get("capabilities")
-    deployed_input = capabilities.get("deployed_input") if isinstance(capabilities, dict) else None
+    deployed_input = (
+        capabilities.get("deployed_input") if isinstance(capabilities, dict) else None
+    )
     if not isinstance(deployed_input, list) or not deployed_input:
         raise SystemExit(
             f"main model profile {profile_id!r} must declare deployed_input capabilities"
@@ -76,7 +85,8 @@ def eligible_qualified_run_ids(
 
     if not matches:
         raise SystemExit(
-            f"main model profile {profile_id!r} has no current qualified_run eligible for verified promotion"
+            f"main model profile {profile_id!r} has no current qualified_run "
+            "eligible for verified promotion"
         )
     return sorted(matches)
 
@@ -92,7 +102,10 @@ def check_profile(profile_id: str) -> dict[str, Any]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Check ADR-0033 eligibility for an explicit unverified-to-verified profile promotion."
+        description=(
+            "Check ADR-0033 eligibility for an explicit unverified-to-verified "
+            "profile promotion."
+        )
     )
     parser.add_argument("--profile", required=True, help="Main Model profile id")
     args = parser.parse_args()
