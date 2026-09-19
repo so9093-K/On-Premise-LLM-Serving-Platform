@@ -50,11 +50,11 @@ def build_router(
         payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
         if state_store is not None:
-            state = await state_store.get("risk_prompt")
+            state = await state_store.get("prompt_injection_detector")
             if state in (RuntimeState.stopped, RuntimeState.starting):
                 raise ServiceError(
-                    "MODEL_UNAVAILABLE", "risk_prompt runtime is "
-                    f"{state.value}. Start it with PATCH /admin/runtimes/risk_prompt.",
+                    "MODEL_UNAVAILABLE", "prompt_injection_detector runtime is "
+                    f"{state.value}. Start it with PATCH /admin/runtimes/prompt_injection_detector.",
                 )
         result = await service.forward_risk_assessment("/v1/risk/detectors/prompt/assessments", payload)
         _record_if_enabled(request, payload=payload, response=result)
@@ -120,11 +120,11 @@ def build_router(
         payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
         if state_store is not None:
-            state = await state_store.get("risk_prompt")
+            state = await state_store.get("prompt_injection_detector")
             if state in (RuntimeState.stopped, RuntimeState.starting):
                 raise ServiceError(
-                    "MODEL_UNAVAILABLE", "risk_prompt runtime is "
-                    f"{state.value}. Start it with PATCH /admin/runtimes/risk_prompt.",
+                    "MODEL_UNAVAILABLE", "prompt_injection_detector runtime is "
+                    f"{state.value}. Start it with PATCH /admin/runtimes/prompt_injection_detector.",
                 )
         result = await service.forward_risk_assessment("/v1/risk/assessments", payload)
         _record_if_enabled(request, payload=payload, response=result)
