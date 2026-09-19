@@ -34,7 +34,7 @@
 | **Embedding Runtime** | embedding과 dense retrieval scoring에 사용하는 runtime | `embedding-vllm` |
 | **Korean Embedding Runtime** | 한국어 retrieval 기본 embedding runtime | `embedding-ko-vllm` |
 | **Prompt Injection Detector Runtime** | prompt injection/leaking 신호를 생성하는 model runtime | `risk-prompt-vllm`, model alias `risk-prompt` |
-| **Risk Signal Service** | PII·Secret·Prompt detector 결과를 신호 계약으로 정규화. 최종 allow/block 정책은 소유하지 않음 | service ID `risk-signal-service`; Python/config/env namespace는 후속 migration 대상 |
+| **Risk Signal Service** | PII·Secret·Prompt detector 결과를 신호 계약으로 정규화. 최종 allow/block 정책은 소유하지 않음 | service ID `risk-signal-service`; Python/config identifier `risk_signal_service`; operator env `RISK_SIGNAL_SERVICE_*` |
 | **Main Model Profile** | Main Model의 model revision, runtime image, command, capability와 request policy 조합 | `configs/main_model_profiles.yaml` |
 | **Public Model Alias** | client가 고정적으로 사용하는 model 이름 | `local-main` |
 | **Deployment Target** | platform/backend/lifecycle ownership 조합을 고르는 안정 설정 ID | `DEPLOYMENT_TARGET` |
@@ -78,7 +78,7 @@ consumer를 함께 바꿀 수 있으면 직접 cutover한다. migration bridge�
 | Legacy namespace | Canonical target | 현재 정책 |
 |---|---|---|
 | `MAIN_LLM_*` | `MAIN_MODEL_*` | runtime read alias는 제거됨. 기존 persistent `.env`의 legacy key는 `sync-env` migration 입력으로만 유지되며 `MAIN_LLM_MODEL`은 `MAIN_MODEL_ALIAS`로 이관 |
-| `risk-adapter` / `risk_adapter` / `RISK_ADAPTER_*` | Risk Signal Service 계열 legacy identifier | Compose/DNS/telemetry/OpenAPI artifact의 `risk-adapter`는 제거됨. Python/config/env namespace는 별도 migration; 공개 `/v1/risk/*` API는 현재 Risk 도메인 계약으로 유지 |
+| `risk-adapter` / `risk_adapter` / `RISK_ADAPTER_*` | Risk Signal Service 계열 legacy identifier | active Python/config/process identifier는 `risk_signal_service`, operator env는 `RISK_SIGNAL_SERVICE_*`로 수렴. `RISK_ADAPTER_*`는 `sync-env` migration 입력/테스트/history에만 유지하며 공개 `/v1/risk/*` API는 그대로 유지 |
 | `risk_prompt` / `RISK_PROMPT_*` | Prompt Injection Detector 계열 identifier | runtime/model 내부 identifier만 별도 migration |
 | `admin-sidecar` / `admin_sidecar` | Runtime Controller 계열 legacy identifier | Python shim, Compose service ID, DNS, telemetry key migration이 모두 완료됨. 현재 identifier는 `runtime-controller` / `runtime_controller` |
 
@@ -121,6 +121,6 @@ ADR/CHANGELOG에서 당시 사실을 설명할 때만 보존한다. `/admin/*`�
 API 오류 메시지·OpenAPI 설명/예제·CLI help·Console help·운영 설정의 description도
 사용자-facing 표시 계약에 포함한다. 이 surface에서는 `Runtime Controller`,
 `Risk Signal Service`, `Prompt Injection Detector Runtime` 같은 canonical term을 사용하고,
-`runtime-controller`, `risk-signal-service`, `risk_adapter`, `risk-prompt-vllm` 같은 값은 실제 identifier를 정확히
+`runtime-controller`, `risk-signal-service`, `risk_signal_service`, `risk-prompt-vllm` 같은 값은 실제 identifier를 정확히
 가리켜야 할 때만 code formatting과 함께 노출한다. Runtime Controller endpoint의 canonical
 env는 `RUNTIME_CONTROLLER_URL`이며 `ADMIN_SIDECAR_URL`은 persistent env migration 입력으로만 남는다.
