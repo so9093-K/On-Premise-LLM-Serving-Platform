@@ -38,7 +38,7 @@ def _user_facing_paths(root: Path) -> list[Path]:
         root / "src" / "ai_model_serving" / "api" / "routers" / "gateway_runtime_control.py",
         root / "src" / "ai_model_serving" / "api" / "routers" / "gateway_ops.py",
         root / "src" / "ai_model_serving" / "apps" / "runtime_controller.py",
-        root / "src" / "ai_model_serving" / "apps" / "risk_adapter.py",
+        root / "src" / "ai_model_serving" / "apps" / "risk_signal_service.py",
         root / "src" / "ai_model_serving" / "services" / "gateway_service.py",
         root / "src" / "ai_model_serving" / "security.py",
         root / "scripts" / "validation" / "runtime" / "cli.py",
