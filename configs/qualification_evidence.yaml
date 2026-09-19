@@ -10,6 +10,8 @@ version: 1
 # qualified_run:
 #   v1 도입 이후 새로 verified 승격에 사용하는 완전한 레코드다. validator가
 #   validated_at, runtime engine/version/image digest, GPU/driver를 필수로 요구한다.
+#   checks는 configs/qualification_checks.yaml의 stable ID와 passed/failed/skipped
+#   status를 기록하며, passed run의 capability-required check는 전부 passed여야 한다.
 records:
   gemma4-26b-a4b-fp8-linux-nvidia-legacy:
     kind: legacy_backfill
