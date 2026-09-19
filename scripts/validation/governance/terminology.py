@@ -96,6 +96,8 @@ def terminology_violations(root: Path = ROOT) -> list[str]:
     for path in _active_identifier_paths(root):
         text = path.read_text(encoding="utf-8")
         relative = path.relative_to(root)
+        if relative == Path("scripts/validation/governance/terminology.py"):
+            continue
         for line_number, line in enumerate(text.splitlines(), start=1):
             if "risk_adapter" in line:
                 violations.append(
