@@ -48,6 +48,7 @@ def isolate_settings_environment(monkeypatch):
         "EMBEDDING_MAX_CONCURRENCY",
         "EMBEDDING_QUEUE_TIMEOUT_SECONDS",
         "RISK_PROMPT_TIMEOUT_SECONDS",
+        "RISK_SIGNAL_SERVICE_BASE_URL",
         "RISK_SIGNAL_SERVICE_TIMEOUT_SECONDS",
     ]:
         monkeypatch.delenv(name, raising=False)
@@ -301,6 +302,16 @@ def test_load_settings_supports_independent_internal_service_auth_flag(monkeypat
     settings = load_settings()
     assert settings.security.api_key_required is False
     assert settings.security.internal_service_auth_required is True
+
+
+def test_load_settings_uses_canonical_risk_signal_service_application_env(monkeypatch):
+    monkeypatch.setenv("RISK_SIGNAL_SERVICE_BASE_URL", "http://canonical-risk:9505")
+    monkeypatch.setenv("RISK_SIGNAL_SERVICE_TIMEOUT_SECONDS", "16")
+
+    settings = load_settings()
+
+    assert settings.risk_adapter_base_url == "http://canonical-risk:9505"
+    assert settings.risk_adapter_timeout_seconds == 16
 
 
 def test_load_settings_rejects_risk_adapter_timeout_below_sequential_budget(monkeypatch):
