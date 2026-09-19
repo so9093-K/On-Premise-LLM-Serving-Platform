@@ -35,7 +35,7 @@
 #                              default_profile을 사용한다.
 #   DEPLOY_DEFERRED_RUNTIMES   배포 후 정지 상태로 유지할, 콤마로 구분된 controllable
 #                              런타임 키 또는 compose 서비스 (예:
-#                              embedding,embedding_ko,risk_prompt). full 배포는 이
+#                              embedding,embedding_ko,prompt_injection_detector). full 배포는 이
 #                              컨테이너들을 시작하지 않고 생성만 한다. 이 값이 설정되면
 #                              RUNTIME_STARTUP_PROFILE보다 우선한다.
 set -euo pipefail
