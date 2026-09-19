@@ -460,7 +460,7 @@ runtime_override_example_keys
 ├─ MAIN_MODEL_*
 ├─ EMBEDDING_*
 ├─ EMBEDDING_KO_*
-└─ RISK_PROMPT_*
+└─ PROMPT_INJECTION_DETECTOR_*
 ```
 
 `make validate`는 example env 파일과 이 contract의 drift를 검사한다.

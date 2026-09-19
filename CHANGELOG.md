@@ -22,6 +22,8 @@
 
 ### Changed
 
+- Prompt Injection Detector의 operator 환경변수 namespace를 `PROMPT_INJECTION_DETECTOR_*`로 수렴했다. 기존 `RISK_PROMPT_*`와 `RISK_PROMPT_VLLM_*` 값은 `make sync-env` migration 입력으로만 유지하며 runtime은 canonical key만 읽는다. public model alias `risk-prompt`, Compose service `risk-prompt-vllm`, 내부 runtime key `risk_prompt`는 이번 단계에서 바꾸지 않는다.
+
 - 원격 full deploy의 runtime image preflight가 persistent `.env` 복사본을 먼저 `make sync-env`로 canonicalize한 뒤 image plan을 계산하도록 바꿨다. 실제 `.env`는 image pull 성공 전까지 수정하지 않고, backup/rollback 경계가 준비된 뒤에는 runtime image promotion보다 먼저 `sync-env`를 적용해 legacy/canonical 충돌 없이 수렴한다. ([ADR-0028](docs/adr/0028-unified-vllm-runtime-image-authority.md))
 
 - Runtime transition Apply를 Configuration mutation과 같은 reviewed-plan 계약으로 수렴했다. `PATCH /admin/runtimes/{service_key}`는 이제 Plan에서 받은 `plan_digest`를 필수로 요구하고, Runtime Controller도 mutation 직전 GPU budget lock 안에서 같은 plan을 재계산해 digest drift를 fail-closed한다. 초기 compatibility 기간의 digest 없는 Apply 경로는 제거했다. ([ADR-0027](docs/adr/0027-control-plane-runtime-configuration-and-console-boundary.md))

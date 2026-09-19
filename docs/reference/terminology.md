@@ -33,7 +33,7 @@
 | **Main Model Runtime** | `local-main` 요청을 수행하는 주 generation runtime | `main-llm-vllm` |
 | **Embedding Runtime** | embedding과 dense retrieval scoring에 사용하는 runtime | `embedding-vllm` |
 | **Korean Embedding Runtime** | 한국어 retrieval 기본 embedding runtime | `embedding-ko-vllm` |
-| **Prompt Injection Detector Runtime** | prompt injection/leaking 신호를 생성하는 model runtime | `risk-prompt-vllm`, model alias `risk-prompt` |
+| **Prompt Injection Detector Runtime** | prompt injection/leaking 신호를 생성하는 model runtime | Compose service `risk-prompt-vllm`, public model alias `risk-prompt`, operator env `PROMPT_INJECTION_DETECTOR_*` |
 | **Risk Signal Service** | PII·Secret·Prompt detector 결과를 신호 계약으로 정규화. 최종 allow/block 정책은 소유하지 않음 | service ID `risk-signal-service`; Python/config identifier `risk_signal_service`; operator env `RISK_SIGNAL_SERVICE_*` |
 | **Main Model Profile** | Main Model의 model revision, runtime image, command, capability와 request policy 조합 | `configs/main_model_profiles.yaml` |
 | **Public Model Alias** | client가 고정적으로 사용하는 model 이름 | `local-main` |
@@ -79,7 +79,7 @@ consumer를 함께 바꿀 수 있으면 직접 cutover한다. migration bridge�
 |---|---|---|
 | `MAIN_LLM_*` | `MAIN_MODEL_*` | runtime read alias는 제거됨. 기존 persistent `.env`의 legacy key는 `sync-env` migration 입력으로만 유지되며 `MAIN_LLM_MODEL`은 `MAIN_MODEL_ALIAS`로 이관 |
 | `risk-adapter` / `risk_adapter` / `RISK_ADAPTER_*` | Risk Signal Service 계열 legacy identifier | active Python/config/process identifier는 `risk_signal_service`, operator env는 `RISK_SIGNAL_SERVICE_*`로 수렴. `RISK_ADAPTER_*`는 `sync-env` migration 입력/테스트/history에만 유지하며 공개 `/v1/risk/*` API는 그대로 유지 |
-| `risk_prompt` / `RISK_PROMPT_*` | Prompt Injection Detector 계열 identifier | runtime/model 내부 identifier만 별도 migration |
+| `risk_prompt` / `RISK_PROMPT_*` | Prompt Injection Detector 계열 legacy identifier | operator env는 `PROMPT_INJECTION_DETECTOR_*`로 수렴하고 `RISK_PROMPT_*`는 `sync-env` migration 입력으로만 유지. 내부 runtime/config key `risk_prompt`와 public model alias `risk-prompt`는 별도 migration 판단 대상 |
 | `admin-sidecar` / `admin_sidecar` | Runtime Controller 계열 legacy identifier | Python shim, Compose service ID, DNS, telemetry key migration이 모두 완료됨. 현재 identifier는 `runtime-controller` / `runtime_controller` |
 
 migration이 완료되기 전에는 기존 식별자를 삭제하거나 새 target과 충돌하는 값을 자동 선택하지 않는다.
