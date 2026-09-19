@@ -61,3 +61,58 @@ def test_sync_env_rejects_conflicting_prompt_injection_detector_keys(tmp_path, c
             f"conflicting env keys {legacy_key} and {canonical_key}"
             in capsys.readouterr().err
         )
+
+
+def test_sync_env_migrates_old_prompt_detector_compose_default_url(tmp_path):
+    out = tmp_path / ".env"
+    out.write_text(
+        "BUILD_PROFILE=compose\n"
+        "PROMPT_INJECTION_DETECTOR_BASE_URL=http://risk-prompt-vllm:9403/v1\n",
+        encoding="utf-8",
+    )
+
+    rc = setup_env.main(["--sync-env", "--env-file", str(out)])
+
+    assert rc == 0
+    values = setup_env.read_env_values(out)
+    assert (
+        values["PROMPT_INJECTION_DETECTOR_BASE_URL"]
+        == "http://prompt-injection-detector-runtime:9403/v1"
+    )
+
+
+def test_sync_env_applies_key_then_value_migration_for_legacy_prompt_url(tmp_path):
+    out = tmp_path / ".env"
+    out.write_text(
+        "BUILD_PROFILE=compose\n"
+        "RISK_PROMPT_BASE_URL=http://risk-prompt-vllm:9403/v1\n",
+        encoding="utf-8",
+    )
+
+    rc = setup_env.main(["--sync-env", "--env-file", str(out)])
+
+    assert rc == 0
+    values = setup_env.read_env_values(out)
+    assert "RISK_PROMPT_BASE_URL" not in values
+    assert (
+        values["PROMPT_INJECTION_DETECTOR_BASE_URL"]
+        == "http://prompt-injection-detector-runtime:9403/v1"
+    )
+
+
+def test_sync_env_preserves_custom_prompt_detector_base_url(tmp_path):
+    out = tmp_path / ".env"
+    out.write_text(
+        "BUILD_PROFILE=compose\n"
+        "PROMPT_INJECTION_DETECTOR_BASE_URL=http://custom-detector.example:9503/v1\n",
+        encoding="utf-8",
+    )
+
+    rc = setup_env.main(["--sync-env", "--env-file", str(out)])
+
+    assert rc == 0
+    values = setup_env.read_env_values(out)
+    assert (
+        values["PROMPT_INJECTION_DETECTOR_BASE_URL"]
+        == "http://custom-detector.example:9503/v1"
+    )
